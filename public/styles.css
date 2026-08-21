@@ -5244,15 +5244,15 @@ body.has-mobile-sheet-open {
   }
 
   .contract-section h2 {
-    font-size: 0.94rem;
-    letter-spacing: 0.12em;
-    line-height: 1.35;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+    line-height: 1.25;
   }
 
   .contract-document h1 {
-    font-size: clamp(1.45rem, 7vw, 2rem);
-    line-height: 1.08;
-    letter-spacing: 0.04em;
+    font-size: clamp(1.18rem, 6.2vw, 1.55rem);
+    line-height: 1.12;
+    letter-spacing: 0.02em;
   }
 
   .contract-signature__line {
@@ -5318,6 +5318,12 @@ body.has-mobile-sheet-open {
 
   .contract-sign-options label {
     font-size: 0.95rem;
+    gap: 8px;
+  }
+
+  .contract-sign-options input {
+    margin-top: 2px;
+    flex: 0 0 16px;
   }
 
   .contract-actions .button,
