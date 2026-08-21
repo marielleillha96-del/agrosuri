@@ -49,6 +49,19 @@ const buildSignatureText = (fullName, style = "cursive") => {
   return name;
 };
 
+const formatCompanySignatureText = (value) => {
+  const text = String(value || "").trim();
+  if (!text) {
+    return "";
+  }
+
+  if (/SURI/i.test(text)) {
+    return "Suri Negociações e Intermediações LTDA - ME";
+  }
+
+  return text;
+};
+
 const getSignatureClass = (style = "cursive") => {
   if (style === "hand") {
     return "signature-style-hand";
@@ -64,7 +77,9 @@ const getSignatureClass = (style = "cursive") => {
 const formatSignatureHash = (value, fallback) => escapeHtml(String(value || fallback || "-"));
 
 export const renderAcquisitionContractHtml = (contract) => {
-  const sellerSignatureText = escapeHtml(contract.sellerSignatureText || contract.sellerName);
+  const sellerSignatureText = escapeHtml(
+    formatCompanySignatureText(contract.sellerSignatureText || contract.sellerName)
+  );
   const clientSignatureText = escapeHtml(
     contract.clientSignedAt
       ? contract.clientSignatureText ||
@@ -72,7 +87,7 @@ export const renderAcquisitionContractHtml = (contract) => {
       : "ASSINATURA DIGITAL DO CLIENTE"
   );
   const clientSignatureStyleClass = getSignatureClass(contract.clientSignatureStyle || "cursive");
-  const sellerSignatureStyleClass = getSignatureClass(contract.sellerSignatureStyle || "cursive");
+  const sellerSignatureStyleClass = getSignatureClass("hand");
   const sellerSignatureHash = formatSignatureHash(contract.sellerSignatureHash, `sig_${String(contract.publicToken || "seller").slice(-8)}`);
   const clientSignatureHash = contract.clientSignedAt
     ? formatSignatureHash(contract.clientSignatureHash, `sig_${String(contract.publicToken || "client").slice(0, 8)}`)
