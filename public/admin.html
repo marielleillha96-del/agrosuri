@@ -1857,8 +1857,18 @@
           resetInvoiceForm();
           setStatus(invoiceStatus, "Fatura gerada com sucesso.");
           activateTab("invoices");
-          await loadDashboard();
-          await loadInvoices();
+
+          if (response?.invoice) {
+            currentAdminData.invoices = [response.invoice, ...(currentAdminData.invoices || [])];
+            renderInvoices(currentAdminData.invoices);
+          }
+
+          loadDashboard().catch((error) => {
+            console.warn("Falha ao atualizar o painel após gerar fatura:", error);
+          });
+          loadInvoices().catch((error) => {
+            console.warn("Falha ao atualizar a lista de faturas após gerar fatura:", error);
+          });
 
           if (response?.invoice?.paymentUrl) {
             await navigator.clipboard.writeText(response.invoice.paymentUrl).catch(() => {});
