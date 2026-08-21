@@ -1,4 +1,4 @@
-import { createUser, deleteUserById, findUserByEmailOrCpf, saveRefreshToken, updateUser } from "../src/auth/repository.js";
+import { createUser, deleteUserById, findUserByEmailOrCpf, findUserById, saveRefreshToken, updateUser } from "../src/auth/repository.js";
 import { comparePassword, signAccessToken, signRefreshToken } from "../src/auth/security.js";
 import {
   createCatalogItem,
@@ -11,10 +11,50 @@ import {
   updateCatalogItem,
   updateDriver
 } from "../src/admin/repository.js";
+import { createInvoice, createInvoiceToken, findInvoiceById, listInvoices, syncInvoiceWithSigilo } from "../src/invoices/repository.js";
+import { createSigiloPixPayment, fetchSigiloTransaction } from "../src/payments/sigilopay.js";
 import { requireAdmin } from "./_lib/admin.js";
 import { handleOptions, readJsonBody, sendJson, getQueryParam } from "./_lib/http.js";
 import { onlyDigits, sanitizeUser } from "../src/auth/utils.js";
 import { hashPassword } from "../src/auth/security.js";
+
+const appUrl = process.env.APP_URL || "http://localhost:3000";
+const sigiloCallbackUrl =
+  process.env.SIGILO_CALLBACK_URL || new URL("/api/webhooks/sigilopay", appUrl).toString();
+
+const normalizeInvoicePayload = (invoice) => {
+  if (!invoice) {
+    return null;
+  }
+
+  return {
+    id: invoice.id,
+    publicToken: invoice.publicToken,
+    clientUserId: invoice.clientUserId,
+    clientName: invoice.clientName,
+    clientEmail: invoice.clientEmail,
+    clientPhone: invoice.clientPhone,
+    clientDocument: invoice.clientDocument,
+    title: invoice.title,
+    amount: Number(invoice.amount || 0),
+    dueDate: invoice.dueDate,
+    description: invoice.description,
+    status: invoice.status,
+    sigiloTransactionId: invoice.sigiloTransactionId,
+    sigiloOrderId: invoice.sigiloOrderId,
+    sigiloPaymentMethod: invoice.sigiloPaymentMethod,
+    sigiloStatus: invoice.sigiloStatus,
+    pixCode: invoice.pixCode,
+    pixImage: invoice.pixImage,
+    paymentUrl: invoice.paymentUrl,
+    callbackUrl: invoice.callbackUrl,
+    sigiloDetails: invoice.sigiloDetails,
+    sigiloPayload: invoice.sigiloPayload,
+    paidAt: invoice.paidAt,
+    createdAt: invoice.createdAt,
+    updatedAt: invoice.updatedAt
+  };
+};
 
 const sendAuthPayload = async (req, res, user) => {
   const accessToken = signAccessToken(user);
@@ -337,6 +377,110 @@ export default async function handler(req, res) {
       return sendJson(req, res, 201, { tracking });
     }
 
+    if (action === "invoices") {
+      if (req.method === "GET") {
+        const invoices = await listInvoices();
+        return sendJson(req, res, 200, { invoices });
+      }
+
+      if (req.method === "POST") {
+        const { clientUserId, title, amount, dueDate, description } = await readJsonBody(req);
+
+        if (!clientUserId || !title || amount === undefined || amount === null) {
+          return sendJson(req, res, 400, { message: "Selecione um cliente, informe o título e o valor da fatura." });
+        }
+
+        const client = await findUserById(String(clientUserId).trim());
+
+        if (!client || (client.role || "customer") === "admin") {
+          return sendJson(req, res, 404, { message: "Cliente não encontrado." });
+        }
+
+        if (!client.full_name || !client.email || !client.whatsapp || !client.cpf) {
+          return sendJson(req, res, 400, {
+            message: "O cliente selecionado precisa ter nome, e-mail, WhatsApp e CPF cadastrados."
+          });
+        }
+
+        const amountNumber = Number(amount);
+        if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
+          return sendJson(req, res, 400, { message: "O valor da fatura deve ser maior que zero." });
+        }
+
+        const publicToken = createInvoiceToken();
+        const sigiloResponse = await createSigiloPixPayment({
+          identifier: publicToken,
+          amount: amountNumber,
+          client: {
+            name: client.full_name,
+            email: client.email,
+            phone: client.whatsapp,
+            document: client.cpf
+          },
+          dueDate: dueDate || undefined,
+          metadata: {
+            provider: "AGRO SURI",
+            invoiceTitle: String(title).trim(),
+            invoiceToken: publicToken
+          },
+          callbackUrl: sigiloCallbackUrl
+        });
+
+        const paymentUrl = `${appUrl.replace(/\/$/, "")}/fatura.html?token=${publicToken}`;
+        const invoice = await createInvoice({
+          publicToken,
+          clientUserId: client.id,
+          clientName: client.full_name,
+          clientEmail: client.email,
+          clientPhone: client.whatsapp,
+          clientDocument: client.cpf,
+          title: String(title).trim(),
+          amount: amountNumber,
+          dueDate: dueDate || null,
+          description: description ? String(description).trim() : null,
+          sigiloTransactionId: sigiloResponse.transactionId || null,
+          sigiloOrderId: sigiloResponse.order?.id || null,
+          sigiloPaymentMethod: "PIX",
+          sigiloStatus: sigiloResponse.status || "PENDING",
+          pixCode: sigiloResponse.pix?.code || null,
+          pixImage: sigiloResponse.pix?.image || null,
+          paymentUrl,
+          callbackUrl: sigiloCallbackUrl,
+          sigiloDetails: sigiloResponse.details || null,
+          sigiloPayload: sigiloResponse,
+          status: sigiloResponse.status === "OK" ? "pending" : String(sigiloResponse.status || "pending").toLowerCase()
+        });
+
+        return sendJson(req, res, 201, { invoice: normalizeInvoicePayload(invoice) });
+      }
+
+      return sendJson(req, res, 405, { message: "Método não permitido." });
+    }
+
+    if (action === "invoices-sync") {
+      if (req.method !== "POST") {
+        return sendJson(req, res, 405, { message: "Método não permitido." });
+      }
+
+      const id = getQueryParam(req, "id");
+      if (!id) {
+        return sendJson(req, res, 400, { message: "ID da fatura não informado." });
+      }
+
+      const invoice = await findInvoiceById(String(id).trim());
+      if (!invoice) {
+        return sendJson(req, res, 404, { message: "Fatura não encontrada." });
+      }
+
+      const transaction = await fetchSigiloTransaction({
+        id: invoice.sigiloTransactionId,
+        clientIdentifier: invoice.publicToken
+      });
+
+      const updatedInvoice = await syncInvoiceWithSigilo(invoice, transaction);
+      return sendJson(req, res, 200, { invoice: normalizeInvoicePayload(updatedInvoice) });
+    }
+
     return sendJson(req, res, 404, { message: "Rota administrativa não encontrada." });
   } catch (error) {
     console.error(error);
@@ -363,6 +507,14 @@ export default async function handler(req, res) {
 
     if (action === "yards") {
       return sendJson(req, res, 500, { message: "Erro ao cadastrar pátio." });
+    }
+
+    if (action === "invoices") {
+      return sendJson(req, res, 500, { message: "Erro ao gerar fatura." });
+    }
+
+    if (action === "invoices-sync") {
+      return sendJson(req, res, 502, { message: "Erro ao sincronizar fatura." });
     }
 
     return sendJson(req, res, 500, { message: "Erro ao cadastrar rastreio." });
