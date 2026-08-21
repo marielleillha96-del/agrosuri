@@ -22,6 +22,14 @@ const appUrl = process.env.APP_URL || "http://localhost:3000";
 const sigiloCallbackUrl =
   process.env.SIGILO_CALLBACK_URL || new URL("/api/webhooks/sigilopay", appUrl).toString();
 
+const getTodayInSaoPaulo = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
+
 const normalizeInvoicePayload = (invoice) => {
   if (!invoice) {
     return null;
@@ -405,6 +413,17 @@ export default async function handler(req, res) {
         const amountNumber = Number(amount);
         if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
           return sendJson(req, res, 400, { message: "O valor da fatura deve ser maior que zero." });
+        }
+
+        if (dueDate) {
+          const normalizedDueDate = String(dueDate).trim().slice(0, 10);
+          const today = getTodayInSaoPaulo();
+
+          if (!normalizedDueDate || normalizedDueDate <= today) {
+            return sendJson(req, res, 400, {
+              message: "Escolha um vencimento a partir de amanhã para gerar a fatura."
+            });
+          }
         }
 
         const publicToken = createInvoiceToken();

@@ -635,6 +635,7 @@
       const trackingDestinationPreview = document.getElementById("trackingDestinationPreview");
       const yardForm = document.getElementById("yardForm");
       const invoiceForm = document.getElementById("invoiceForm");
+      const invoiceDueDate = document.getElementById("invoiceDueDate");
       const invoiceStatus = document.getElementById("invoiceStatus");
       const invoiceClientSelect = document.getElementById("invoiceClientSelect");
       const invoiceSubmitButton = document.getElementById("invoiceSubmitButton");
@@ -681,6 +682,9 @@
         element.textContent = message;
         element.classList.toggle("is-error", error);
       };
+
+      const formatInputDate = (date) => date.toISOString().slice(0, 10);
+      const getTomorrowDateValue = () => formatInputDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
 
       const slugify = (value) =>
         String(value || "")
@@ -1320,6 +1324,9 @@
         renderInvoices(currentAdminData.invoices);
       };
 
+      invoiceDueDate.min = getTomorrowDateValue();
+      invoiceDueDate.value = getTomorrowDateValue();
+
       const renderDriverPhotoPreview = () => {
         driverPhotoPreview.innerHTML = driverPhotoBase64 ? `<img src="${driverPhotoBase64}" alt="Pré-visualização do motorista" />` : "Sem foto";
       };
@@ -1409,6 +1416,8 @@
 
       const resetInvoiceForm = () => {
         invoiceForm.reset();
+        invoiceDueDate.min = getTomorrowDateValue();
+        invoiceDueDate.value = getTomorrowDateValue();
         invoiceSubmitButton.textContent = "Gerar fatura";
         setStatus(invoiceStatus, "");
       };
