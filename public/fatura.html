@@ -276,11 +276,25 @@
 
           renderInvoice(data.invoice);
         } catch (error) {
+          if (sync) {
+            try {
+              const fallbackResponse = await fetch(`/api/invoices/public/${encodeURIComponent(token)}`);
+              const fallbackData = await fallbackResponse.json();
+
+              if (fallbackResponse.ok) {
+                renderInvoice(fallbackData.invoice);
+                return;
+              }
+            } catch (_fallbackError) {
+              // Mantém o erro original abaixo.
+            }
+          }
+
           renderError(error.message);
         }
       };
 
-      loadInvoice(true);
+      loadInvoice(false);
       setInterval(() => loadInvoice(true), 30000);
     </script>
   </body>

@@ -40,6 +40,10 @@
       "destination": "/catalog-api-detail"
     },
     {
+      "source": "/fatura",
+      "destination": "/fatura.html"
+    },
+    {
       "source": "/",
       "destination": "/index.html"
     },

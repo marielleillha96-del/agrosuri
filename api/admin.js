@@ -426,7 +426,7 @@ export default async function handler(req, res) {
           callbackUrl: sigiloCallbackUrl
         });
 
-        const paymentUrl = `${appUrl.replace(/\/$/, "")}/fatura.html?token=${publicToken}`;
+        const paymentUrl = `${appUrl.replace(/\/$/, "")}/fatura?token=${publicToken}`;
         const invoice = await createInvoice({
           publicToken,
           clientUserId: client.id,
