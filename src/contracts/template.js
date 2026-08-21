@@ -61,6 +61,8 @@ const getSignatureClass = (style = "cursive") => {
   return "signature-style-cursive";
 };
 
+const formatSignatureHash = (value, fallback) => escapeHtml(String(value || fallback || "-"));
+
 export const renderAcquisitionContractHtml = (contract) => {
   const sellerSignatureText = escapeHtml(contract.sellerSignatureText || contract.sellerName);
   const clientSignatureText = escapeHtml(
@@ -71,19 +73,32 @@ export const renderAcquisitionContractHtml = (contract) => {
   );
   const clientSignatureStyleClass = getSignatureClass(contract.clientSignatureStyle || "cursive");
   const sellerSignatureStyleClass = getSignatureClass(contract.sellerSignatureStyle || "cursive");
+  const sellerSignatureHash = formatSignatureHash(contract.sellerSignatureHash, `sig_${String(contract.publicToken || "seller").slice(-8)}`);
+  const clientSignatureHash = contract.clientSignedAt
+    ? formatSignatureHash(contract.clientSignatureHash, `sig_${String(contract.publicToken || "client").slice(0, 8)}`)
+    : "PENDENTE DE ASSINATURA";
 
   return `
     <article class="contract-document">
       <header class="contract-document__header">
-        <p class="contract-eyebrow">CONTRATO DE AQUISIÇÃO DE VEÍCULOS E MAQUINÁRIOS</p>
-        <h1>CONTRATO DE AQUISIÇÃO DE VEÍCULOS E MAQUINÁRIOS</h1>
+        <div class="contract-document__brand">
+          <img src="/agrosuri.png" alt="AGRO SURI" />
+          <div>
+            <strong>AGRO SURI</strong>
+            <span>LEILÕES E INTERMEDIAÇÕES</span>
+          </div>
+        </div>
+
+        <div class="contract-document__meta">
+          <p class="contract-eyebrow">DOCUMENTO PARTICULAR COM ASSINATURA ELETRÔNICA</p>
+          <h1>CONTRATO DE AQUISIÇÃO DE VEÍCULOS E MAQUINÁRIOS</h1>
+        </div>
+
         <p class="contract-lead">
-          Pelo presente instrumento com validade jurídica em todo o território nacional brasileiro,
-          nomeamos de um lado <strong>${escapeHtml(contract.sellerName)}</strong>,
-          inscrita no CNPJ sob o nº <strong>01.934.111/0001-38</strong>,
-          com endereço comercial em <strong>RUA DOUTOR RENATO PAES DE BARROS, 618, SALA 07,
-          ITAIM BIBI, SÃO PAULO - SP, CEP 04530-000</strong>, doravante denominado VENDEDOR;
-          e de outro lado <strong>${escapeHtml(contract.clientName || "CLIENTE")}</strong>,
+          Pelo presente instrumento particular, de um lado <strong>${escapeHtml(contract.sellerName)}</strong>,
+          inscrita no CNPJ sob o nº <strong>01.934.111/0001-38</strong>, com endereço comercial em
+          <strong>RUA DOUTOR RENATO PAES DE BARROS, 618, SALA 07, ITAIM BIBI, SÃO PAULO - SP, CEP 04530-000</strong>,
+          doravante denominada VENDEDORA, e de outro lado <strong>${escapeHtml(contract.clientName || "CLIENTE")}</strong>,
           inscrito no CPF sob o nº <strong>${escapeHtml(contract.clientCpf || "-")}</strong>,
           residente e domiciliado em <strong>${escapeHtml(contract.clientAddress || "-")}</strong>,
           doravante denominado COMPRADOR.
@@ -171,6 +186,7 @@ export const renderAcquisitionContractHtml = (contract) => {
             </div>
             <strong>${escapeHtml(contract.sellerName)}</strong>
             <span>VENDEDOR</span>
+            <small class="contract-signature__hash">HASH DE SEGURANÇA: ${sellerSignatureHash}</small>
           </div>
 
           <div class="contract-signature">
@@ -179,6 +195,7 @@ export const renderAcquisitionContractHtml = (contract) => {
             </div>
             <strong>${escapeHtml(contract.clientName || "CLIENTE")}</strong>
             <span>COMPRADOR</span>
+            <small class="contract-signature__hash">HASH DE SEGURANÇA: ${clientSignatureHash}</small>
           </div>
         </div>
       </section>

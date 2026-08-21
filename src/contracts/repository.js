@@ -1,8 +1,10 @@
-import { randomUUID } from "crypto";
+import { randomBytes, randomUUID } from "crypto";
 
 import { pool } from "../auth/db.js";
 
 const normalizeContractStatus = (contract) => (contract?.client_signed_at ? "signed" : contract?.status || "pending_client_signature");
+
+const createSignatureHash = () => `sig_${randomBytes(8).toString("hex")}`;
 
 const serializeContract = (row) => {
   if (!row) {
@@ -31,9 +33,11 @@ const serializeContract = (row) => {
     sellerSignatureText: row.seller_signature_text,
     sellerSignatureStyle: row.seller_signature_style,
     sellerSignedAt: row.seller_signed_at,
+    sellerSignatureHash: row.seller_signature_hash,
     clientSignatureText: row.client_signature_text,
     clientSignatureStyle: row.client_signature_style,
     clientSignedAt: row.client_signed_at,
+    clientSignatureHash: row.client_signature_hash,
     status: normalizeContractStatus({
       status: row.status,
       client_signed_at: row.client_signed_at
@@ -44,6 +48,62 @@ const serializeContract = (row) => {
 };
 
 let contractSchemaPromise;
+
+const persistContractChangesByPublicToken = async (publicToken, changes) => {
+  const fields = [];
+  const values = [publicToken];
+  const pushField = (column, value) => {
+    if (value === undefined) {
+      return;
+    }
+
+    values.push(value);
+    fields.push(`${column} = $${values.length}`);
+  };
+
+  pushField("contract_type", changes.contractType);
+  pushField("client_user_id", changes.clientUserId);
+  pushField("client_name", changes.clientName);
+  pushField("client_email", changes.clientEmail);
+  pushField("client_cpf", changes.clientCpf);
+  pushField("client_address", changes.clientAddress);
+  pushField("vehicle_name", changes.vehicleName);
+  pushField("vehicle_model", changes.vehicleModel);
+  pushField("vehicle_year", changes.vehicleYear);
+  pushField("amount_value", changes.amountValue);
+  pushField("amount_text", changes.amountText);
+  pushField("payment_method", changes.paymentMethod);
+  pushField("payment_notes", changes.paymentNotes);
+  pushField("delivery_date", changes.deliveryDate);
+  pushField("delivery_address", changes.deliveryAddress);
+  pushField("seller_name", changes.sellerName);
+  pushField("seller_signature_text", changes.sellerSignatureText);
+  pushField("seller_signature_style", changes.sellerSignatureStyle);
+  pushField("seller_signed_at", changes.sellerSignedAt);
+  pushField("seller_signature_hash", changes.sellerSignatureHash);
+  pushField("client_signature_text", changes.clientSignatureText);
+  pushField("client_signature_style", changes.clientSignatureStyle);
+  pushField("client_signed_at", changes.clientSignedAt);
+  pushField("client_signature_hash", changes.clientSignatureHash);
+  pushField("status", changes.status);
+
+  if (!fields.length) {
+    const { rows } = await pool.query(`select * from public.app_contracts where public_token = $1 limit 1`, [publicToken]);
+    return serializeContract(rows[0] || null);
+  }
+
+  const { rows } = await pool.query(
+    `
+      update public.app_contracts
+      set ${fields.join(", ")}
+      where public_token = $1
+      returning *
+    `,
+    values
+  );
+
+  return serializeContract(rows[0] || null);
+};
 
 export const ensureContractSchema = async () => {
   if (!contractSchemaPromise) {
@@ -70,13 +130,18 @@ export const ensureContractSchema = async () => {
         seller_signature_text text not null,
         seller_signature_style text not null default 'cursive',
         seller_signed_at timestamptz not null default timezone('utc', now()),
+        seller_signature_hash text,
         client_signature_text text,
         client_signature_style text,
         client_signed_at timestamptz,
+        client_signature_hash text,
         status text not null default 'pending_client_signature',
         created_at timestamptz not null default timezone('utc', now()),
         updated_at timestamptz not null default timezone('utc', now())
       );
+
+      alter table public.app_contracts add column if not exists seller_signature_hash text;
+      alter table public.app_contracts add column if not exists client_signature_hash text;
 
       create index if not exists app_contracts_public_token_idx on public.app_contracts (public_token);
       create index if not exists app_contracts_client_user_id_idx on public.app_contracts (client_user_id);
@@ -89,6 +154,31 @@ export const ensureContractSchema = async () => {
       for each row
       execute function public.set_updated_at();
     `);
+  }
+
+  await contractSchemaPromise;
+
+  const { rows } = await pool.query(`
+    select public_token, seller_signature_hash, client_signature_hash, client_signed_at
+    from public.app_contracts
+    where seller_signature_hash is null
+       or (client_signed_at is not null and client_signature_hash is null)
+  `);
+
+  for (const row of rows) {
+    const changes = {};
+
+    if (!row.seller_signature_hash) {
+      changes.sellerSignatureHash = createSignatureHash();
+    }
+
+    if (row.client_signed_at && !row.client_signature_hash) {
+      changes.clientSignatureHash = createSignatureHash();
+    }
+
+    if (Object.keys(changes).length) {
+      await persistContractChangesByPublicToken(row.public_token, changes);
+    }
   }
 
   return contractSchemaPromise;
@@ -116,6 +206,7 @@ export const createContract = async ({
   sellerName,
   sellerSignatureText,
   sellerSignatureStyle = "cursive",
+  sellerSignatureHash = createSignatureHash(),
   status = "pending_client_signature"
 }) => {
   await ensureContractSchema();
@@ -126,13 +217,13 @@ export const createContract = async ({
         contract_type, public_token, client_user_id, client_name, client_email, client_cpf, client_address,
         vehicle_name, vehicle_model, vehicle_year, amount_value, amount_text, payment_method, payment_notes,
         delivery_date, delivery_address, seller_name, seller_signature_text, seller_signature_style, seller_signed_at,
-        status
+        seller_signature_hash, status
       )
       values (
         $1,$2,$3,$4,$5,$6,$7,
         $8,$9,$10,$11,$12,$13,$14,
         $15,$16,$17,$18,$19,timezone('utc', now()),
-        $20
+        $20,$21
       )
       returning *
     `,
@@ -156,6 +247,7 @@ export const createContract = async ({
       sellerName,
       sellerSignatureText,
       sellerSignatureStyle,
+      sellerSignatureHash,
       status
     ]
   );
@@ -199,57 +291,7 @@ export const findContractByPublicToken = async (publicToken) => {
 
 export const updateContractByPublicToken = async (publicToken, changes) => {
   await ensureContractSchema();
-
-  const fields = [];
-  const values = [publicToken];
-  const pushField = (column, value) => {
-    if (value === undefined) {
-      return;
-    }
-
-    values.push(value);
-    fields.push(`${column} = $${values.length}`);
-  };
-
-  pushField("contract_type", changes.contractType);
-  pushField("client_user_id", changes.clientUserId);
-  pushField("client_name", changes.clientName);
-  pushField("client_email", changes.clientEmail);
-  pushField("client_cpf", changes.clientCpf);
-  pushField("client_address", changes.clientAddress);
-  pushField("vehicle_name", changes.vehicleName);
-  pushField("vehicle_model", changes.vehicleModel);
-  pushField("vehicle_year", changes.vehicleYear);
-  pushField("amount_value", changes.amountValue);
-  pushField("amount_text", changes.amountText);
-  pushField("payment_method", changes.paymentMethod);
-  pushField("payment_notes", changes.paymentNotes);
-  pushField("delivery_date", changes.deliveryDate);
-  pushField("delivery_address", changes.deliveryAddress);
-  pushField("seller_name", changes.sellerName);
-  pushField("seller_signature_text", changes.sellerSignatureText);
-  pushField("seller_signature_style", changes.sellerSignatureStyle);
-  pushField("seller_signed_at", changes.sellerSignedAt);
-  pushField("client_signature_text", changes.clientSignatureText);
-  pushField("client_signature_style", changes.clientSignatureStyle);
-  pushField("client_signed_at", changes.clientSignedAt);
-  pushField("status", changes.status);
-
-  if (!fields.length) {
-    return findContractByPublicToken(publicToken);
-  }
-
-  const { rows } = await pool.query(
-    `
-      update public.app_contracts
-      set ${fields.join(", ")}
-      where public_token = $1
-      returning *
-    `,
-    values
-  );
-
-  return serializeContract(rows[0] || null);
+  return persistContractChangesByPublicToken(publicToken, changes);
 };
 
 export const signContractByPublicToken = async (publicToken, { clientSignatureText, clientSignatureStyle }) =>
@@ -257,5 +299,6 @@ export const signContractByPublicToken = async (publicToken, { clientSignatureTe
     clientSignatureText,
     clientSignatureStyle,
     clientSignedAt: new Date().toISOString(),
+    clientSignatureHash: createSignatureHash(),
     status: "signed"
   });

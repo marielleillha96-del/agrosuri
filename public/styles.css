@@ -4931,9 +4931,10 @@ body.has-mobile-sheet-open {
 
 .contract-document {
   color: #161616;
-  text-transform: uppercase;
+  font-family: "Times New Roman", Georgia, serif;
   line-height: 1.58;
-  font-size: 0.96rem;
+  font-size: 1rem;
+  text-align: justify;
 }
 
 .contract-document h1,
@@ -4948,6 +4949,40 @@ body.has-mobile-sheet-open {
   margin-bottom: 22px;
 }
 
+.contract-document__brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.contract-document__brand img {
+  width: 118px;
+  height: auto;
+  object-fit: contain;
+}
+
+.contract-document__brand strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.22rem;
+  letter-spacing: 0.12em;
+  color: #163022;
+}
+
+.contract-document__brand span {
+  display: block;
+  font-size: 0.75rem;
+  letter-spacing: 0.28em;
+  color: rgba(22, 48, 34, 0.68);
+}
+
+.contract-document__meta {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(17, 116, 59, 0.14);
+}
+
 .contract-eyebrow {
   margin: 0;
   font-size: 0.8rem;
@@ -4957,6 +4992,9 @@ body.has-mobile-sheet-open {
 
 .contract-lead {
   margin: 0;
+  font-size: 1.02rem;
+  line-height: 1.9;
+  text-indent: 1.25cm;
 }
 
 .contract-section {
@@ -4965,12 +5003,15 @@ body.has-mobile-sheet-open {
 
 .contract-section h2 {
   margin: 0 0 10px;
-  font-size: 1rem;
+  font-size: 1.05rem;
   letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .contract-section p {
   margin: 0 0 10px;
+  text-indent: 1.25cm;
+  line-height: 1.9;
 }
 
 .contract-section--signatures {
@@ -5005,6 +5046,14 @@ body.has-mobile-sheet-open {
   color: #163022;
 }
 
+.contract-signature__hash {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: rgba(22, 48, 34, 0.62);
+  word-break: break-all;
+}
+
 .signature-style-cursive {
   font-family: "Brush Script MT", "Segoe Script", cursive;
   font-weight: 400 !important;
@@ -5037,6 +5086,33 @@ body.has-mobile-sheet-open {
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.14em;
+}
+
+.contract-sign-preview {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid rgba(17, 116, 59, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.contract-sign-preview__eyebrow {
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(22, 48, 34, 0.72);
+}
+
+.contract-sign-preview__frame {
+  display: grid;
+  gap: 6px;
+}
+
+.contract-sign-preview__sample {
+  font-size: 1.7rem;
+  color: #163022;
 }
 
 @media print {
@@ -5113,6 +5189,115 @@ body.has-mobile-sheet-open {
   .invoice-summary-grid,
   .invoice-layout {
     grid-template-columns: 1fr;
+  }
+
+  .contract-main {
+    padding-bottom: 390px;
+  }
+
+  .contract-hero {
+    padding-bottom: 12px;
+  }
+
+  .contract-paper {
+    padding: 20px 16px;
+    border-radius: 22px;
+  }
+
+  .contract-document {
+    font-size: 0.95rem;
+    line-height: 1.8;
+  }
+
+  .contract-document__brand {
+    align-items: flex-start;
+    gap: 10px;
+    flex-direction: column;
+  }
+
+  .contract-document__brand img {
+    width: 98px;
+  }
+
+  .contract-document__brand strong {
+    font-size: 1.08rem;
+  }
+
+  .contract-document__brand span {
+    letter-spacing: 0.2em;
+  }
+
+  .contract-lead,
+  .contract-section p {
+    text-indent: 0.7cm;
+    line-height: 1.75;
+  }
+
+  .contract-section h2 {
+    font-size: 0.94rem;
+    letter-spacing: 0.12em;
+  }
+
+  .contract-signature__line {
+    min-height: 84px;
+    font-size: 1.45rem;
+  }
+
+  .contract-signature__hash {
+    font-size: 0.68rem;
+  }
+
+  .contract-panel--side {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    z-index: 80;
+    max-height: 46vh;
+    overflow: auto;
+    padding: 16px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 24px 44px rgba(17, 28, 21, 0.22);
+    backdrop-filter: blur(14px);
+  }
+
+  .contract-panel__head {
+    margin-bottom: 12px;
+  }
+
+  .contract-details {
+    margin-bottom: 14px;
+  }
+
+  .contract-sign-form {
+    gap: 12px;
+  }
+
+  .contract-sign-options {
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .contract-sign-options label {
+    align-items: flex-start;
+  }
+
+  .contract-sign-options span {
+    line-height: 1.35;
+  }
+
+  .contract-sign-preview {
+    padding: 14px;
+  }
+
+  .contract-sign-preview__sample {
+    font-size: 1.48rem;
+  }
+
+  .contract-actions .button,
+  .contract-sign-form .button {
+    min-height: 48px;
   }
 }
 
