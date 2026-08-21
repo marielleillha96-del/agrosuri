@@ -97,6 +97,12 @@
                 </span>
                 <span>Faturas</span>
               </button>
+              <button class="admin-tab" type="button" data-tab-target="contracts">
+                <span class="admin-tab__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M7 4h10v16H7z" stroke="currentColor" stroke-width="2"/><path d="M9 8h6M9 12h6M9 16h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                </span>
+                <span>Contratos</span>
+              </button>
             </nav>
 
             <button class="admin-sidebar__logout" type="button" id="adminLogoutButton">Sair</button>
@@ -403,6 +409,97 @@
                 </article>
               </section>
             </div>
+
+            <div class="admin-tab-panel" data-tab-panel="contracts">
+              <section class="admin-grid">
+                <article class="admin-card admin-card--wide">
+                  <div class="admin-card__head">
+                    <div>
+                      <span class="admin-eyebrow">Contratos</span>
+                      <h2>Gerar contrato</h2>
+                    </div>
+                  </div>
+                  <p class="admin-panel-copy">
+                    Gere o contrato de aquisição, envie o link para assinatura e acompanhe o status em tempo real.
+                  </p>
+
+                  <div class="admin-subtabs" role="tablist" aria-label="Sub abas de contratos">
+                    <button class="admin-subtab is-active" type="button" data-contract-tab-target="acquisition">Contrato de Aquisição</button>
+                    <button class="admin-subtab" type="button" data-contract-tab-target="auction">Termo de Arremate</button>
+                    <button class="admin-subtab" type="button" data-contract-tab-target="status">Status dos Contratos</button>
+                  </div>
+
+                  <div class="admin-contract-panel is-active" data-contract-panel="acquisition">
+                    <form class="admin-form admin-form--grid" id="contractForm">
+                      <input type="hidden" name="clientUserId" id="contractClientUserId" />
+                      <label class="admin-form__full">
+                        <span>NOME COMPLETO DO CLIENTE</span>
+                        <input type="text" name="clientName" id="contractClientSearch" list="contractClientOptions" placeholder="Pesquisar ou digitar o nome do cliente" autocomplete="off" required />
+                        <datalist id="contractClientOptions"></datalist>
+                      </label>
+                      <label>
+                        <span>CPF DO CLIENTE</span>
+                        <input type="text" name="clientCpf" id="contractClientCpf" required />
+                      </label>
+                      <label class="admin-form__full">
+                        <span>ENDEREÇO DO CLIENTE</span>
+                        <textarea name="clientAddress" id="contractClientAddress" rows="3" required></textarea>
+                      </label>
+                      <label>
+                        <span>NOME DO VEÍCULO / MÁQUINA</span>
+                        <input type="text" name="vehicleName" id="contractVehicleName" required />
+                      </label>
+                      <label>
+                        <span>MARCA / MODELO</span>
+                        <input type="text" name="vehicleModel" id="contractVehicleModel" required />
+                      </label>
+                      <label>
+                        <span>ANO DE FABRICAÇÃO</span>
+                        <input type="text" name="vehicleYear" id="contractVehicleYear" required />
+                      </label>
+                      <label>
+                        <span>VALOR DO VEÍCULO</span>
+                        <input type="number" name="amountValue" id="contractAmountValue" step="0.01" min="0.01" required />
+                      </label>
+                      <label class="admin-form__full">
+                        <span>VALOR POR EXTENSO</span>
+                        <input type="text" name="amountText" id="contractAmountText" required />
+                      </label>
+                      <label>
+                        <span>FORMA DE PAGAMENTO</span>
+                        <input type="text" name="paymentMethod" id="contractPaymentMethod" required />
+                      </label>
+                      <label>
+                        <span>OBSERVAÇÃO DO PAGAMENTO</span>
+                        <input type="text" name="paymentNotes" id="contractPaymentNotes" required />
+                      </label>
+                      <label>
+                        <span>DATA DE ENTREGA</span>
+                        <input type="date" name="deliveryDate" id="contractDeliveryDate" required />
+                      </label>
+                      <label class="admin-form__full">
+                        <span>ENDEREÇO DE ENTREGA</span>
+                        <textarea name="deliveryAddress" id="contractDeliveryAddress" rows="3" required></textarea>
+                      </label>
+                      <div class="admin-form__full admin-form__actions">
+                        <button class="button button-primary" type="submit" id="contractSubmitButton">Gerar contrato</button>
+                        <p class="admin-status" id="contractStatus"></p>
+                      </div>
+                    </form>
+                  </div>
+
+                  <div class="admin-contract-panel hidden" data-contract-panel="auction">
+                    <div class="admin-empty">
+                      O TERMO DE ARREMATE será configurado na próxima etapa.
+                    </div>
+                  </div>
+
+                  <div class="admin-contract-panel hidden" data-contract-panel="status">
+                    <div class="admin-list" id="contractsList"></div>
+                  </div>
+                </article>
+              </section>
+            </div>
           </div>
         </section>
       </section>
@@ -640,6 +737,26 @@
       const invoiceClientSelect = document.getElementById("invoiceClientSelect");
       const invoiceSubmitButton = document.getElementById("invoiceSubmitButton");
       const invoicesList = document.getElementById("invoicesList");
+      const contractForm = document.getElementById("contractForm");
+      const contractStatus = document.getElementById("contractStatus");
+      const contractSubmitButton = document.getElementById("contractSubmitButton");
+      const contractClientSearch = document.getElementById("contractClientSearch");
+      const contractClientOptions = document.getElementById("contractClientOptions");
+      const contractClientUserId = document.getElementById("contractClientUserId");
+      const contractClientCpf = document.getElementById("contractClientCpf");
+      const contractClientAddress = document.getElementById("contractClientAddress");
+      const contractVehicleName = document.getElementById("contractVehicleName");
+      const contractVehicleModel = document.getElementById("contractVehicleModel");
+      const contractVehicleYear = document.getElementById("contractVehicleYear");
+      const contractAmountValue = document.getElementById("contractAmountValue");
+      const contractAmountText = document.getElementById("contractAmountText");
+      const contractPaymentMethod = document.getElementById("contractPaymentMethod");
+      const contractPaymentNotes = document.getElementById("contractPaymentNotes");
+      const contractDeliveryDate = document.getElementById("contractDeliveryDate");
+      const contractDeliveryAddress = document.getElementById("contractDeliveryAddress");
+      const contractTabButtons = Array.from(document.querySelectorAll("[data-contract-tab-target]"));
+      const contractTabPanels = Array.from(document.querySelectorAll("[data-contract-panel]"));
+      const contractsList = document.getElementById("contractsList");
 
       const adminStats = document.getElementById("adminStats");
       const usersTableBody = document.querySelector("#usersTable tbody");
@@ -658,7 +775,8 @@
         drivers: [],
         yards: [],
         trackings: [],
-        invoices: []
+        invoices: [],
+        contracts: []
       };
       let selectedGalleryImages = [];
       let editingClientId = null;
@@ -685,6 +803,21 @@
 
       const formatInputDate = (date) => date.toISOString().slice(0, 10);
       const getTomorrowDateValue = () => formatInputDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
+      const formatContractDate = (value) => {
+        if (!value) {
+          return "-";
+        }
+
+        const normalized = /^\d{4}-\d{2}-\d{2}$/.test(String(value).trim())
+          ? `${String(value).trim()}T12:00:00`
+          : value;
+        const date = new Date(normalized);
+        if (Number.isNaN(date.getTime())) {
+          return String(value);
+        }
+
+        return date.toLocaleDateString("pt-BR");
+      };
 
       const slugify = (value) =>
         String(value || "")
@@ -761,7 +894,12 @@
       };
 
       tabButtons.forEach((button) => {
-        button.addEventListener("click", () => activateTab(button.dataset.tabTarget));
+        button.addEventListener("click", () => {
+          activateTab(button.dataset.tabTarget);
+          if (button.dataset.tabTarget === "contracts") {
+            setContractTab("acquisition");
+          }
+        });
       });
 
       const openModal = (modal) => {
@@ -887,7 +1025,8 @@
           ["Motoristas", data.drivers.length],
           ["Pátios", data.yards.length],
           ["Rastreios", data.trackings.length],
-          ["Faturas", data.invoicesTotal || data.invoices?.length || 0]
+          ["Faturas", data.invoicesTotal || data.invoices?.length || 0],
+          ["Contratos", data.contractsTotal || data.contracts?.length || 0]
         ];
 
         adminStats.innerHTML = stats
@@ -1298,10 +1437,128 @@
         });
       };
 
+      const contractStatusInfo = (status) => {
+        const value = String(status || "").toLowerCase();
+
+        if (value === "signed") {
+          return { label: "Assinado", className: "is-paid" };
+        }
+
+        if (value === "canceled") {
+          return { label: "Cancelado", className: "is-failed" };
+        }
+
+        return { label: "Aguardando assinatura", className: "is-pending" };
+      };
+
+      const renderContractClientOptions = () => {
+        const users = customerUsers();
+        contractClientOptions.innerHTML = users
+          .map(
+            (user) =>
+              `<option value="${user.full_name || ""}">${user.full_name || ""} • ${user.email || user.cpf || "Sem contato"}</option>`
+          )
+          .join("");
+      };
+
+      const findContractClient = (value) => {
+        const normalized = String(value || "").trim().toLowerCase();
+        if (!normalized) {
+          return null;
+        }
+
+        return customerUsers().find((user) => {
+          const candidates = [user.full_name, user.email, user.cpf, user.whatsapp]
+            .map((item) => String(item || "").trim().toLowerCase())
+            .filter(Boolean);
+
+          return candidates.includes(normalized) || candidates.some((item) => item.includes(normalized));
+        });
+      };
+
+      const fillContractClient = (user) => {
+        if (!user) {
+          return;
+        }
+
+        contractClientUserId.value = user.id || "";
+        contractClientSearch.value = user.full_name || "";
+        contractClientCpf.value = user.cpf || "";
+        contractClientAddress.value = buildClientAddress(user) || "";
+        if (!contractDeliveryAddress.value.trim()) {
+          contractDeliveryAddress.value = buildClientAddress(user) || "";
+        }
+      };
+
+      const resetContractForm = () => {
+        contractForm.reset();
+        contractClientUserId.value = "";
+        contractStatus.textContent = "";
+        contractSubmitButton.textContent = "Gerar contrato";
+        contractDeliveryDate.value = getTomorrowDateValue();
+        renderContractClientOptions();
+      };
+
+      const setContractTab = (target) => {
+        contractTabButtons.forEach((button) => {
+          button.classList.toggle("is-active", button.dataset.contractTabTarget === target);
+        });
+
+        contractTabPanels.forEach((panel) => {
+          panel.classList.toggle("is-active", panel.dataset.contractPanel === target);
+          panel.classList.toggle("hidden", panel.dataset.contractPanel !== target);
+        });
+      };
+
+      const renderContracts = (contracts) => {
+        contractsList.innerHTML = contracts.length
+          ? contracts
+              .map((contract) => {
+                const statusInfo = contractStatusInfo(contract.status);
+                const deliveryDate = contract.deliveryDate ? formatContractDate(contract.deliveryDate) : "Sem data";
+                const createdAt = contract.createdAt ? new Date(contract.createdAt).toLocaleString("pt-BR") : "-";
+                const publicUrl = `${window.location.origin}/contrato?token=${contract.publicToken}`;
+
+                return `
+                  <article class="admin-list-item">
+                    <strong>${contract.clientName || "Contrato"}</strong>
+                    <span>${contract.vehicleName || "-"} • ${statusInfo.label}</span>
+                    <p>${contract.vehicleModel || "-"} • ${contract.vehicleYear || "-"} • ${deliveryDate}</p>
+                    <p>${contract.publicToken || "-"} • ${createdAt}</p>
+                    <div class="admin-list-item__actions">
+                      <a class="button button-secondary admin-card-action" href="${publicUrl}" target="_blank" rel="noreferrer">Abrir contrato</a>
+                      <button class="button button-secondary admin-card-action" type="button" data-copy-contract-link="${contract.id}">Copiar link</button>
+                    </div>
+                  </article>
+                `;
+              })
+              .join("")
+          : '<div class="admin-empty">Nenhum contrato gerado ainda.</div>';
+
+        contracts.forEach((contract) => {
+          const copyButton = document.querySelector(`[data-copy-contract-link="${contract.id}"]`);
+
+          if (copyButton) {
+            copyButton.addEventListener("click", async () => {
+              try {
+                await navigator.clipboard.writeText(`${window.location.origin}/contrato?token=${contract.publicToken}`);
+                copyButton.textContent = "Copiado";
+                setTimeout(() => {
+                  copyButton.textContent = "Copiar link";
+                }, 1600);
+              } catch (_error) {
+                copyButton.textContent = "Falha";
+              }
+            });
+          }
+        });
+      };
+
       const renderDashboard = (data) => {
         currentAdminData = {
           ...data,
-          invoices: currentAdminData.invoices || data.invoices || []
+          invoices: currentAdminData.invoices || data.invoices || [],
+          contracts: currentAdminData.contracts || data.contracts || []
         };
         renderStats(data);
         renderUsers(data.users);
@@ -1311,6 +1568,8 @@
         renderTrackings(data.trackings);
         renderTrackingSelects();
         renderInvoices(currentAdminData.invoices || []);
+        renderContractClientOptions();
+        renderContracts(currentAdminData.contracts || []);
       };
 
       const loadDashboard = async () => {
@@ -1324,8 +1583,16 @@
         renderInvoices(currentAdminData.invoices);
       };
 
+      const loadContracts = async () => {
+        const data = await adminFetch("/api/admin?action=contracts");
+        currentAdminData.contracts = data.contracts || [];
+        renderContracts(currentAdminData.contracts);
+      };
+
       invoiceDueDate.min = getTomorrowDateValue();
       invoiceDueDate.value = getTomorrowDateValue();
+      contractDeliveryDate.min = getTomorrowDateValue();
+      contractDeliveryDate.value = getTomorrowDateValue();
 
       const renderDriverPhotoPreview = () => {
         driverPhotoPreview.innerHTML = driverPhotoBase64 ? `<img src="${driverPhotoBase64}" alt="Pré-visualização do motorista" />` : "Sem foto";
@@ -1657,6 +1924,32 @@
 
       trackingClientSelect.addEventListener("change", syncTrackingDestination);
 
+      contractTabButtons.forEach((button) => {
+        button.addEventListener("click", () => setContractTab(button.dataset.contractTabTarget));
+      });
+
+      contractClientSearch.addEventListener("input", () => {
+        const matchedClient = findContractClient(contractClientSearch.value);
+
+        if (matchedClient) {
+          fillContractClient(matchedClient);
+          return;
+        }
+
+        contractClientUserId.value = "";
+      });
+
+      contractClientSearch.addEventListener("change", () => {
+        const matchedClient = findContractClient(contractClientSearch.value);
+        if (matchedClient) {
+          fillContractClient(matchedClient);
+        }
+      });
+
+      contractClientCpf.addEventListener("input", () => {
+        contractClientCpf.value = contractClientCpf.value.replace(/[^0-9.\-\/]/g, "");
+      });
+
       adminLoginForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         setStatus(adminLoginStatus, "Entrando...");
@@ -1682,6 +1975,7 @@
           showDashboard();
           await loadDashboard();
           await loadInvoices();
+          await loadContracts();
         } catch (error) {
           setStatus(adminLoginStatus, error.message, true);
         }
@@ -1721,6 +2015,7 @@
           closeModal(clientModal);
           resetClientForm();
           await loadDashboard();
+          await loadContracts();
         } catch (error) {
           setStatus(clientStatus, error.message, true);
         }
@@ -1752,6 +2047,7 @@
           closeModal(driverModal);
           resetDriverForm();
           await loadDashboard();
+          await loadContracts();
         } catch (error) {
           setStatus(driverStatus, error.message, true);
         }
@@ -1843,6 +2139,52 @@
           await loadDashboard();
         } catch (error) {
           setStatus(trackingStatus, error.message, true);
+        }
+      });
+
+      contractForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        setStatus(contractStatus, "Gerando contrato...");
+
+        try {
+          const formData = new FormData(contractForm);
+          const response = await adminFetch("/api/admin?action=contracts", {
+            method: "POST",
+            body: JSON.stringify({
+              clientUserId: formData.get("clientUserId") || contractClientUserId.value || null,
+              clientName: formData.get("clientName"),
+              clientCpf: formData.get("clientCpf"),
+              clientAddress: formData.get("clientAddress"),
+              vehicleName: formData.get("vehicleName"),
+              vehicleModel: formData.get("vehicleModel"),
+              vehicleYear: formData.get("vehicleYear"),
+              amountValue: formData.get("amountValue"),
+              amountText: formData.get("amountText"),
+              paymentMethod: formData.get("paymentMethod"),
+              paymentNotes: formData.get("paymentNotes"),
+              deliveryDate: formData.get("deliveryDate"),
+              deliveryAddress: formData.get("deliveryAddress"),
+              contractType: "acquisition"
+            })
+          });
+
+          resetContractForm();
+          setStatus(contractStatus, "Contrato gerado com sucesso.");
+          setContractTab("status");
+          if (response?.contract) {
+            currentAdminData.contracts = [response.contract, ...(currentAdminData.contracts || [])];
+            renderContracts(currentAdminData.contracts);
+            await navigator.clipboard.writeText(`${window.location.origin}/contrato?token=${response.contract.publicToken}`).catch(() => {});
+          }
+
+          loadDashboard().catch((error) => {
+            console.warn("Falha ao atualizar o painel após gerar contrato:", error);
+          });
+          loadContracts().catch((error) => {
+            console.warn("Falha ao atualizar a lista de contratos após gerar contrato:", error);
+          });
+        } catch (error) {
+          setStatus(contractStatus, error.message, true);
         }
       });
 

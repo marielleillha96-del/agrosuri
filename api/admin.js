@@ -11,6 +11,8 @@ import {
   updateCatalogItem,
   updateDriver
 } from "../src/admin/repository.js";
+import { createContract, createContractToken, listContracts } from "../src/contracts/repository.js";
+import { renderAcquisitionContractHtml } from "../src/contracts/template.js";
 import { createInvoice, createInvoiceToken, findInvoiceById, listInvoices, syncInvoiceWithSigilo } from "../src/invoices/repository.js";
 import { createSigiloPixPayment, fetchSigiloTransaction } from "../src/payments/sigilopay.js";
 import { requireAdmin } from "./_lib/admin.js";
@@ -29,6 +31,8 @@ const getTodayInSaoPaulo = () =>
     month: "2-digit",
     day: "2-digit"
   }).format(new Date());
+
+const contractSellerName = "SURI NEGOCIACOES E INTERMEDIACOES LTDA – ME";
 
 const normalizeInvoicePayload = (invoice) => {
   if (!invoice) {
@@ -61,6 +65,43 @@ const normalizeInvoicePayload = (invoice) => {
     paidAt: invoice.paidAt,
     createdAt: invoice.createdAt,
     updatedAt: invoice.updatedAt
+  };
+};
+
+const normalizeContractPayload = (contract) => {
+  if (!contract) {
+    return null;
+  }
+
+  return {
+    id: contract.id,
+    contractType: contract.contractType,
+    publicToken: contract.publicToken,
+    clientUserId: contract.clientUserId,
+    clientName: contract.clientName,
+    clientEmail: contract.clientEmail,
+    clientCpf: contract.clientCpf,
+    clientAddress: contract.clientAddress,
+    vehicleName: contract.vehicleName,
+    vehicleModel: contract.vehicleModel,
+    vehicleYear: contract.vehicleYear,
+    amountValue: Number(contract.amountValue || 0),
+    amountText: contract.amountText,
+    paymentMethod: contract.paymentMethod,
+    paymentNotes: contract.paymentNotes,
+    deliveryDate: contract.deliveryDate,
+    deliveryAddress: contract.deliveryAddress,
+    sellerName: contract.sellerName,
+    sellerSignatureText: contract.sellerSignatureText,
+    sellerSignatureStyle: contract.sellerSignatureStyle,
+    sellerSignedAt: contract.sellerSignedAt,
+    clientSignatureText: contract.clientSignatureText,
+    clientSignatureStyle: contract.clientSignatureStyle,
+    clientSignedAt: contract.clientSignedAt,
+    status: contract.status,
+    createdAt: contract.createdAt,
+    updatedAt: contract.updatedAt,
+    documentHtml: renderAcquisitionContractHtml(contract)
   };
 };
 
@@ -385,6 +426,98 @@ export default async function handler(req, res) {
       return sendJson(req, res, 201, { tracking });
     }
 
+    if (action === "contracts") {
+      if (req.method === "GET") {
+        const contracts = await listContracts();
+        return sendJson(req, res, 200, { contracts: contracts.map(normalizeContractPayload) });
+      }
+
+      if (req.method === "POST") {
+        const {
+          contractType,
+          clientUserId,
+          clientName,
+          clientCpf,
+          clientAddress,
+          clientEmail,
+          vehicleName,
+          vehicleModel,
+          vehicleYear,
+          amountValue,
+          amountText,
+          paymentMethod,
+          paymentNotes,
+          deliveryDate,
+          deliveryAddress
+        } = await readJsonBody(req);
+
+        const resolvedClientUserId = clientUserId ? String(clientUserId).trim() : null;
+        const client = resolvedClientUserId ? await findUserById(resolvedClientUserId) : null;
+        const finalClientName = String(clientName || client?.full_name || "").trim();
+        const finalClientCpf = String(clientCpf || client?.cpf || "").trim();
+        const finalClientAddress = String(clientAddress || client?.address || "").trim() || null;
+        const finalClientEmail = String(clientEmail || client?.email || "").trim() || null;
+        const finalVehicleName = String(vehicleName || "").trim() || null;
+        const finalVehicleModel = String(vehicleModel || "").trim() || null;
+        const finalVehicleYear = String(vehicleYear || "").trim() || null;
+        const finalAmountValue = Number(amountValue || 0);
+        const finalAmountText = String(amountText || "").trim() || null;
+        const finalPaymentMethod = String(paymentMethod || "").trim() || null;
+        const finalPaymentNotes = String(paymentNotes || "").trim() || null;
+        const finalDeliveryAddress = String(deliveryAddress || "").trim() || finalClientAddress;
+
+        if (!finalClientName || !finalClientCpf || !finalClientAddress) {
+          return sendJson(req, res, 400, {
+            message: "Selecione ou informe cliente, CPF e endereço antes de gerar o contrato."
+          });
+        }
+
+        if (!finalVehicleName || !finalVehicleModel || !finalVehicleYear) {
+          return sendJson(req, res, 400, {
+            message: "Informe nome, marca/modelo e ano do veículo/maquinário."
+          });
+        }
+
+        if (!Number.isFinite(finalAmountValue) || finalAmountValue <= 0) {
+          return sendJson(req, res, 400, { message: "Informe um valor válido para o contrato." });
+        }
+
+        if (!finalAmountText || !finalPaymentMethod || !finalPaymentNotes || !deliveryDate || !finalDeliveryAddress) {
+          return sendJson(req, res, 400, {
+            message: "Preencha valor por extenso, forma de pagamento, observação, data de entrega e endereço de entrega."
+          });
+        }
+
+        const publicToken = createContractToken();
+        const contract = await createContract({
+          contractType: String(contractType || "acquisition").trim().toLowerCase(),
+          publicToken,
+          clientUserId: client?.id || resolvedClientUserId,
+          clientName: finalClientName,
+          clientEmail: finalClientEmail,
+          clientCpf: finalClientCpf,
+          clientAddress: finalClientAddress,
+          vehicleName: finalVehicleName,
+          vehicleModel: finalVehicleModel,
+          vehicleYear: finalVehicleYear,
+          amountValue: finalAmountValue,
+          amountText: finalAmountText,
+          paymentMethod: finalPaymentMethod,
+          paymentNotes: finalPaymentNotes,
+          deliveryDate,
+          deliveryAddress: finalDeliveryAddress,
+          sellerName: contractSellerName,
+          sellerSignatureText: contractSellerName,
+          sellerSignatureStyle: "cursive",
+          status: "pending_client_signature"
+        });
+
+        return sendJson(req, res, 201, { contract: normalizeContractPayload(contract) });
+      }
+
+      return sendJson(req, res, 405, { message: "Método não permitido." });
+    }
+
     if (action === "invoices") {
       if (req.method === "GET") {
         const invoices = await listInvoices();
@@ -518,6 +651,10 @@ export default async function handler(req, res) {
 
     if (action === "catalog-items") {
       return sendJson(req, res, 500, { message: "Erro ao processar item do catálogo." });
+    }
+
+    if (action === "contracts") {
+      return sendJson(req, res, 500, { message: "Erro ao gerar contrato." });
     }
 
     if (action === "drivers") {

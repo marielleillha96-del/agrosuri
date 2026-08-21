@@ -28,6 +28,14 @@
       "destination": "/api/invoices?action=public&token=:token"
     },
     {
+      "source": "/api/contracts/public/:token/sign",
+      "destination": "/api/contracts?action=sign&token=:token"
+    },
+    {
+      "source": "/api/contracts/public/:token",
+      "destination": "/api/contracts?action=public&token=:token"
+    },
+    {
       "source": "/api/customer/:action",
       "destination": "/api/customer?action=:action"
     },
@@ -70,6 +78,10 @@
     {
       "source": "/admin",
       "destination": "/admin.html"
+    },
+    {
+      "source": "/contrato",
+      "destination": "/contrato.html"
     },
     {
       "source": "/detalhe",

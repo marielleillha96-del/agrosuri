@@ -2,6 +2,7 @@ import { pool } from "../auth/db.js";
 import { comparePassword, hashPassword } from "../auth/security.js";
 import { createUser, findUserByEmailOrCpf, updateUserPasswordAndRole } from "../auth/repository.js";
 import { DEFAULT_CATALOG_ITEMS } from "./default-catalog.js";
+import { countContracts, ensureContractSchema, listContracts } from "../contracts/repository.js";
 
 const DEFAULT_ADMIN_EMAIL = process.env.ADMIN_EMAIL || "acesso@agrosuri.com.br";
 const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "agroadm26";
@@ -209,9 +210,10 @@ export const ensureDefaultCatalogItems = async () => {
 
 export const getAdminDashboardData = async () => {
   await ensureAdminSchema();
+  await ensureContractSchema();
   await ensureDefaultCatalogItems();
 
-  const [users, catalogItems, drivers, yards, trackings] = await Promise.all([
+  const [users, catalogItems, drivers, yards, trackings, contracts, contractsTotal] = await Promise.all([
     pool.query(`
       select id, full_name, email, whatsapp, cpf, city, state, role, created_at
       from public.app_users
@@ -251,7 +253,9 @@ export const getAdminDashboardData = async () => {
       left join public.app_drivers d on d.id = t.driver_id
       left join public.app_yards y on y.id = t.yard_id
       order by t.created_at desc
-    `)
+    `),
+    listContracts({ limit: 5 }),
+    countContracts()
   ]);
 
   return {
@@ -259,7 +263,9 @@ export const getAdminDashboardData = async () => {
     catalogItems: catalogItems.rows,
     drivers: drivers.rows,
     yards: yards.rows,
-    trackings: trackings.rows
+    trackings: trackings.rows,
+    contracts,
+    contractsTotal
   };
 };
 

@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AGRO SURI | Contrato</title>
+    <meta name="description" content="Contrato de aquisição da AGRO SURI com assinatura digital do cliente." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Montserrat:wght@700;800&family=Sora:wght@600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="contract-page">
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="./index.html" aria-label="AGRO SURI">
+          <img class="brand-logo" src="./agrosuri.png" alt="AGRO SURI" />
+        </a>
+
+        <nav class="desktop-nav" aria-label="Navegação principal">
+          <a href="./index.html">Início</a>
+          <a href="./catalogo.html">Catálogo</a>
+          <a href="./rastreio.html">Rastreio</a>
+        </nav>
+
+        <div class="header-actions">
+          <a class="header-button" href="./login.html">Minha conta</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="contract-main">
+      <section class="contract-hero">
+        <div class="container contract-shell">
+          <div class="contract-status-card" id="contractIntro">
+            <span class="invoice-eyebrow">CONTRATO</span>
+            <h1>Contrato de Aquisição</h1>
+            <p>Assine o contrato com a opção de assinatura desejada e, após concluído, faça o download da via assinada pelas duas partes.</p>
+          </div>
+
+          <div class="contract-layout" id="contractRoot">
+            <div class="invoice-loading">Carregando contrato...</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer" id="contato">
+      <div class="container footer-grid">
+        <div>
+          <div class="footer-brand">
+            <img class="footer-logo" src="./agrosuri.png" alt="AGRO SURI" />
+          </div>
+          <p>Sua plataforma segura para negociação de tratores e máquinas agrícolas do Brasil.</p>
+          <div class="social-row">
+            <a href="#contato" aria-label="Facebook">FB</a>
+            <a href="#contato" aria-label="Instagram">IG</a>
+            <a href="#contato" aria-label="WhatsApp">WA</a>
+          </div>
+        </div>
+
+        <div>
+          <h3>Institucional</h3>
+          <ul>
+            <li><a href="./sobre.html">Sobre Nós</a></li>
+            <li><a href="./catalogo.html">Catálogo</a></li>
+            <li><a href="./rastreio.html">Rastreio</a></li>
+            <li><a href="./login.html">Perfil</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3>Contato</h3>
+          <ul class="contact-list">
+            <li>contato@agrosuri.com.br</li>
+            <li>ENDEREÇO COMERCIAL E FISCAL | Coworking</li>
+            <li>R. Dr. Renato Paes de Barros, 618 - Itaim Bibi, São Paulo - SP, 04530-000</li>
+            <li>RECEBIMENTOS E RETIRADAS DE VEÍCULOS:</li>
+            <li>Av. José de Souza Branco, 964 - Jundiapeba, Mogi das Cruzes - SP, 08750-610</li>
+            <li>CNPJ: 01.934.111/0001-38</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="container footer-bottom">
+        <p>2026 AGRO SURI. Todos os direitos reservados.</p>
+        <p>CNPJ: 01.934.111/0001-38 | R. Dr. Renato Paes de Barros, 618 - Itaim Bibi, São Paulo - SP, 04530-000</p>
+      </div>
+    </footer>
+
+    <a class="floating-whatsapp" href="https://wa.me/5542991645618" aria-label="Falar no WhatsApp">WA</a>
+
+    <script src="./mobile-access.js"></script>
+    <script>
+      const contractRoot = document.getElementById("contractRoot");
+
+      const signatureLabels = {
+        cursive: "Letra cursiva",
+        hand: "Letra de mão",
+        "abbrev-cursive": "Sobrenome abreviado"
+      };
+
+      const formatLocalDate = (value) => {
+        if (!value) {
+          return "-";
+        }
+
+        const normalized = /^\d{4}-\d{2}-\d{2}$/.test(String(value).trim())
+          ? `${String(value).trim()}T12:00:00`
+          : value;
+        const date = new Date(normalized);
+
+        if (Number.isNaN(date.getTime())) {
+          return String(value);
+        }
+
+        return date.toLocaleDateString("pt-BR");
+      };
+
+      const getToken = () => {
+        const params = new URLSearchParams(window.location.search);
+        return params.get("token") || params.get("id");
+      };
+
+      const renderLoading = () => {
+        contractRoot.innerHTML = '<div class="invoice-loading">Carregando contrato...</div>';
+      };
+
+      const renderError = (message) => {
+        contractRoot.innerHTML = `
+          <article class="contract-panel contract-panel--error">
+            <h2>Contrato indisponível</h2>
+            <p>${message}</p>
+          </article>
+        `;
+      };
+
+      const renderContract = (contract) => {
+        const signed = Boolean(contract.clientSignedAt);
+        const canDownload = signed;
+
+        contractRoot.innerHTML = `
+          <div class="contract-grid">
+            <section class="contract-paper">
+              ${contract.documentHtml || ""}
+            </section>
+
+            <aside class="contract-panel contract-panel--side">
+              <div class="contract-panel__head">
+                <h2>${signed ? "Contrato assinado" : "Assinatura do cliente"}</h2>
+                <span class="contract-badge ${signed ? "is-signed" : "is-pending"}">${signed ? "Assinado" : "Pendente"}</span>
+              </div>
+
+              <dl class="contract-details">
+                <div><dt>Cliente</dt><dd>${contract.clientName || "-"}</dd></div>
+                <div><dt>CPF</dt><dd>${contract.clientCpf || "-"}</dd></div>
+                <div><dt>Veículo</dt><dd>${[contract.vehicleName, contract.vehicleModel, contract.vehicleYear].filter(Boolean).join(" • ") || "-"}</dd></div>
+                <div><dt>Valor</dt><dd>${Number(contract.amountValue || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</dd></div>
+                <div><dt>Entrega</dt><dd>${formatLocalDate(contract.deliveryDate)}</dd></div>
+              </dl>
+
+              ${
+                signed
+                  ? `
+                    <div class="contract-actions">
+                      <button class="button button-primary" type="button" id="printContractButton">Baixar contrato assinado</button>
+                      <p class="contract-note">Use o botão acima para imprimir e salvar em PDF a via assinada pelas duas partes.</p>
+                    </div>
+                  `
+                  : `
+                    <form class="contract-sign-form" id="contractSignForm">
+                      <fieldset class="contract-sign-options">
+                        <legend>Escolha sua assinatura</legend>
+                        <label><input type="radio" name="signatureStyle" value="cursive" checked /> <span>1 - LETRA CURSIVA</span></label>
+                        <label><input type="radio" name="signatureStyle" value="hand" /> <span>2 - LETRA DE MÃO</span></label>
+                        <label><input type="radio" name="signatureStyle" value="abbrev-cursive" /> <span>3 - SOBRENOME ABREVIADO EM LETRA CURSIVA</span></label>
+                      </fieldset>
+                      <button class="button button-primary" type="submit">Assinar contrato</button>
+                      <p class="contract-note">Ao assinar, o contrato fica disponível para download na via assinada.</p>
+                    </form>
+                  `
+              }
+            </aside>
+          </div>
+        `;
+
+        const printButton = document.getElementById("printContractButton");
+        const signForm = document.getElementById("contractSignForm");
+
+        printButton?.addEventListener("click", () => window.print());
+
+        signForm?.addEventListener("submit", async (event) => {
+          event.preventDefault();
+
+          const formData = new FormData(signForm);
+          try {
+            const response = await fetch(`/api/contracts?action=sign&token=${encodeURIComponent(contract.publicToken)}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                signatureStyle: formData.get("signatureStyle")
+              })
+            });
+            const data = await response.json();
+
+            if (!response.ok) {
+              throw new Error(data.message || "Não foi possível assinar o contrato.");
+            }
+
+            renderContract(data.contract);
+          } catch (error) {
+            renderError(error.message);
+          }
+        });
+      };
+
+      const loadContract = async () => {
+        const token = getToken();
+
+        if (!token) {
+          renderError("Nenhum token de contrato foi informado na URL.");
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/contracts/public/${encodeURIComponent(token)}`);
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || "Não foi possível carregar o contrato.");
+          }
+
+          renderContract(data.contract);
+        } catch (error) {
+          renderError(error.message);
+        }
+      };
+
+      loadContract();
+    </script>
+  </body>
+</html>
