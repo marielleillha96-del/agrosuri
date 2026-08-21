@@ -2078,8 +2078,9 @@ img {
 .site-footer {
   margin-top: 42px;
   padding: 64px 0 92px;
-  background: #001a3b;
-  color: #dbe7ff;
+  background: #ffffff;
+  color: #29412d;
+  border-top: 1px solid rgba(17, 116, 59, 0.1);
 }
 
 .catalog-page .site-footer,
@@ -2091,6 +2092,13 @@ img {
 }
 
 .home-page .site-footer {
+  margin-top: 84px;
+  background: #ffffff;
+  color: #29412d;
+  border-top: 1px solid rgba(17, 116, 59, 0.1);
+}
+
+.tracking-page .site-footer {
   margin-top: 84px;
   background: #ffffff;
   color: #29412d;
@@ -2853,7 +2861,18 @@ img {
   color: #5b695d;
 }
 
+.tracking-page .site-footer p,
+.tracking-page .site-footer li,
+.tracking-page .site-footer a,
+.tracking-page .footer-bottom p {
+  color: #5b695d;
+}
+
 .home-page .site-footer h3 {
+  color: var(--green-700);
+}
+
+.tracking-page .site-footer h3 {
   color: var(--green-700);
 }
 
@@ -2863,7 +2882,17 @@ img {
   color: var(--green-700);
 }
 
+.tracking-page .social-row a {
+  background: rgba(17, 116, 59, 0.08);
+  border-color: rgba(17, 116, 59, 0.08);
+  color: var(--green-700);
+}
+
 .home-page .footer-bottom {
+  border-top-color: rgba(17, 116, 59, 0.1);
+}
+
+.tracking-page .footer-bottom {
   border-top-color: rgba(17, 116, 59, 0.1);
 }
 
@@ -2883,12 +2912,12 @@ img {
 
 .site-footer li,
 .site-footer a {
-  color: #dbe7ff;
+  color: #5b695d;
   font-size: 0.92rem;
 }
 
 .site-footer a:hover {
-  color: var(--lime-500);
+  color: var(--green-700);
 }
 
 .social-row {
@@ -2903,9 +2932,9 @@ img {
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: rgba(17, 116, 59, 0.08);
+  border: 1px solid rgba(17, 116, 59, 0.08);
+  color: var(--green-700);
   font-size: 0.72rem;
   font-weight: 800;
 }
@@ -2913,13 +2942,13 @@ img {
 .footer-bottom {
   margin-top: 38px;
   padding-top: 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(17, 116, 59, 0.1);
   text-align: center;
 }
 
 .footer-bottom p {
   margin: 0;
-  color: #9db0d6;
+  color: #5b695d;
   font-size: 0.82rem;
 }
 
