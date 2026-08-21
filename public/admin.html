@@ -1243,7 +1243,7 @@
         invoicesList.innerHTML = invoices.length
           ? invoices
               .map((invoice) => {
-                const statusInfo = invoiceStatusInfo(invoice.status);
+                const statusInfo = invoiceStatusInfo(invoice.paidAt ? "paid" : invoice.status);
                 const dueDate = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString("pt-BR") : "Sem vencimento";
                 const createdAt = invoice.createdAt ? new Date(invoice.createdAt).toLocaleString("pt-BR") : "-";
 

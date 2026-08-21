@@ -28,6 +28,31 @@ const normalizeStatus = (status) => {
   return value ? value.toLowerCase() : "pending";
 };
 
+const resolveInvoiceStatus = ({ status, payedAt, event } = {}) => {
+  if (payedAt) {
+    return "paid";
+  }
+
+  const normalizedEvent = String(event || "").trim().toUpperCase();
+  if (["TRANSACTION_PAID", "TRANSACTION_COMPLETED"].includes(normalizedEvent)) {
+    return "paid";
+  }
+
+  if (normalizedEvent === "TRANSACTION_REFUNDED") {
+    return "refunded";
+  }
+
+  if (normalizedEvent === "TRANSACTION_CHARGED_BACK") {
+    return "charged_back";
+  }
+
+  if (normalizedEvent === "TRANSACTION_CANCELED") {
+    return "failed";
+  }
+
+  return normalizeStatus(status);
+};
+
 const serializeInvoice = (row) => {
   if (!row) {
     return null;
@@ -45,7 +70,7 @@ const serializeInvoice = (row) => {
     amount: Number(row.amount || 0),
     dueDate: row.due_date,
     description: row.description,
-    status: row.status,
+    status: row.paid_at ? "paid" : row.status,
     sigiloTransactionId: row.sigilo_transaction_id,
     sigiloOrderId: row.sigilo_order_id,
     sigiloPaymentMethod: row.sigilo_payment_method,
@@ -294,8 +319,12 @@ export const updateInvoiceFromSigilo = async (publicToken, sigiloPayload) => {
     sigiloStatus: transaction.status || sigiloPayload?.status || null,
     pixCode: pixInformation.code || pixInformation.qrCode || null,
     pixImage: pixInformation.image || null,
-    status: normalizeStatus(transaction.status || sigiloPayload?.status || "pending"),
-    paidAt: transaction.payedAt || null,
+    status: resolveInvoiceStatus({
+      status: transaction.status || sigiloPayload?.status || "pending",
+      payedAt: transaction.payedAt || sigiloPayload?.payedAt || null,
+      event: sigiloPayload?.event || transaction.event
+    }),
+    paidAt: transaction.payedAt || sigiloPayload?.payedAt || null,
     sigiloDetails: sigiloPayload?.details || null,
     sigiloPayload
   });
@@ -308,7 +337,11 @@ export const syncInvoiceWithSigilo = async (invoice, sigiloTransaction) => {
 
   const transaction = sigiloTransaction || {};
   const pixInformation = transaction.pixInformation || {};
-  const status = normalizeStatus(transaction.status || invoice.sigiloStatus || "pending");
+  const status = resolveInvoiceStatus({
+    status: transaction.status || invoice.sigiloStatus || "pending",
+    payedAt: transaction.payedAt || invoice.paidAt || null,
+    event: transaction.event
+  });
 
   return updateInvoiceByPublicToken(invoice.publicToken, {
     sigiloTransactionId: transaction.id || invoice.sigiloTransactionId || null,

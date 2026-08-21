@@ -39,7 +39,8 @@ export default async function handler(req, res) {
         qrCode: payload.pix?.code || payload.pixInformation?.qrCode || invoice.pixCode || null,
         image: payload.pix?.image || payload.pixInformation?.image || invoice.pixImage || null
       },
-      details: payload.details || transaction.details || null
+      details: payload.details || transaction.details || null,
+      event: payload.event || transaction.event || null
     };
 
     await syncInvoiceWithSigilo(invoice, normalizedTransaction);
