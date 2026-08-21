@@ -144,7 +144,7 @@ export const ensureDefaultAdminUser = async () => {
 
   if (!admin) {
     return createUser({
-      fullName: "Administrador Agrosuri",
+      fullName: "Administrador AGRO SURI",
       email: DEFAULT_ADMIN_EMAIL,
       whatsapp: "(43) 99999-9999",
       cpf: "000.000.000-00",
