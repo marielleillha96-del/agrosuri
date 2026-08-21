@@ -1558,8 +1558,12 @@
       const renderDashboard = (data) => {
         currentAdminData = {
           ...data,
-          invoices: currentAdminData.invoices || data.invoices || [],
-          contracts: currentAdminData.contracts || data.contracts || []
+          invoices: Array.isArray(data.invoices)
+            ? data.invoices
+            : currentAdminData.invoices || [],
+          contracts: Array.isArray(data.contracts)
+            ? data.contracts
+            : currentAdminData.contracts || []
         };
         renderStats(data);
         renderUsers(data.users);
@@ -2286,6 +2290,7 @@
           showDashboard();
           await loadDashboard();
           await loadInvoices();
+          await loadContracts();
         } catch (_error) {
           clearAuth();
           showLogin();
