@@ -12,8 +12,20 @@
       "destination": "/api/auth?action=:action"
     },
     {
+      "source": "/api/admin/invoices/:id/sync",
+      "destination": "/api/admin?action=invoices-sync&id=:id"
+    },
+    {
       "source": "/api/admin/:action",
       "destination": "/api/admin?action=:action"
+    },
+    {
+      "source": "/api/invoices/public/:token/sync",
+      "destination": "/api/invoices?action=public-sync&token=:token"
+    },
+    {
+      "source": "/api/invoices/public/:token",
+      "destination": "/api/invoices?action=public&token=:token"
     },
     {
       "source": "/api/customer/:action",
