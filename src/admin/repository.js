@@ -3,8 +3,8 @@ import { comparePassword, hashPassword } from "../auth/security.js";
 import { createUser, findUserByEmailOrCpf, updateUserPasswordAndRole } from "../auth/repository.js";
 import { DEFAULT_CATALOG_ITEMS } from "./default-catalog.js";
 
-const DEFAULT_ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@agrosuri.com.br";
-const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "agro@2026";
+const DEFAULT_ADMIN_EMAIL = process.env.ADMIN_EMAIL || "acesso@agrosuri.com.br";
+const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "agroadm26";
 
 let adminSchemaPromise;
 let defaultCatalogPromise;
