@@ -91,6 +91,12 @@
                 </span>
                 <span>Rastreios</span>
               </button>
+              <button class="admin-tab" type="button" data-tab-target="invoices">
+                <span class="admin-tab__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M7 4h10a2 2 0 0 1 2 2v14l-3-2-2 2-2-2-2 2-2-2-2 2V6a2 2 0 0 1 2-2Zm2 5h6m-6 4h6m-6 4h3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </span>
+                <span>Faturas</span>
+              </button>
             </nav>
 
             <button class="admin-sidebar__logout" type="button" id="adminLogoutButton">Sair</button>
@@ -345,6 +351,58 @@
                 </article>
               </section>
             </div>
+
+            <div class="admin-tab-panel" data-tab-panel="invoices">
+              <section class="admin-grid">
+                <article class="admin-card">
+                  <div class="admin-card__head">
+                    <div>
+                      <span class="admin-eyebrow">Cobrança</span>
+                      <h2>Gerar fatura Pix</h2>
+                    </div>
+                  </div>
+                  <p class="admin-panel-copy">
+                    Crie a cobrança, gere o Pix copia e cola e envie o link público para o cliente pagar dentro do próprio site.
+                  </p>
+                  <form class="admin-form admin-form--grid" id="invoiceForm">
+                    <label class="admin-form__full">
+                      <span>Cliente cadastrado</span>
+                      <select name="clientUserId" id="invoiceClientSelect" required></select>
+                    </label>
+                    <label class="admin-form__full">
+                      <span>Título da fatura</span>
+                      <input type="text" name="title" id="invoiceTitle" placeholder="Ex.: Frete da máquina" required />
+                    </label>
+                    <label>
+                      <span>Valor</span>
+                      <input type="number" name="amount" id="invoiceAmount" step="0.01" min="0.01" placeholder="0,00" required />
+                    </label>
+                    <label>
+                      <span>Vencimento</span>
+                      <input type="date" name="dueDate" id="invoiceDueDate" />
+                    </label>
+                    <label class="admin-form__full">
+                      <span>Descrição</span>
+                      <textarea name="description" id="invoiceDescription" rows="4" placeholder="Observações da cobrança"></textarea>
+                    </label>
+                    <div class="admin-form__full admin-form__actions">
+                      <button class="button button-primary" type="submit" id="invoiceSubmitButton">Gerar fatura</button>
+                      <p class="admin-status" id="invoiceStatus"></p>
+                    </div>
+                  </form>
+                </article>
+
+                <article class="admin-card admin-card--wide">
+                  <div class="admin-card__head">
+                    <div>
+                      <span class="admin-eyebrow">Lista</span>
+                      <h2>Faturas criadas</h2>
+                    </div>
+                  </div>
+                  <div class="admin-list" id="invoicesList"></div>
+                </article>
+              </section>
+            </div>
           </div>
         </section>
       </section>
@@ -576,6 +634,11 @@
       const trackingCurrentLocationPreview = document.getElementById("trackingCurrentLocationPreview");
       const trackingDestinationPreview = document.getElementById("trackingDestinationPreview");
       const yardForm = document.getElementById("yardForm");
+      const invoiceForm = document.getElementById("invoiceForm");
+      const invoiceStatus = document.getElementById("invoiceStatus");
+      const invoiceClientSelect = document.getElementById("invoiceClientSelect");
+      const invoiceSubmitButton = document.getElementById("invoiceSubmitButton");
+      const invoicesList = document.getElementById("invoicesList");
 
       const adminStats = document.getElementById("adminStats");
       const usersTableBody = document.querySelector("#usersTable tbody");
@@ -593,7 +656,8 @@
         catalogItems: [],
         drivers: [],
         yards: [],
-        trackings: []
+        trackings: [],
+        invoices: []
       };
       let selectedGalleryImages = [];
       let editingClientId = null;
@@ -794,13 +858,32 @@
         syncTrackingDestination();
       };
 
+      const invoiceStatusInfo = (status) => {
+        const value = String(status || "").toLowerCase();
+
+        if (["paid", "completed", "approved", "authorized", "success"].includes(value)) {
+          return { label: "Pago", className: "is-paid" };
+        }
+
+        if (["refunded", "charged_back"].includes(value)) {
+          return { label: "Estornada", className: "is-refunded" };
+        }
+
+        if (["failed", "rejected", "canceled"].includes(value)) {
+          return { label: "Cancelada", className: "is-failed" };
+        }
+
+        return { label: "Pendente", className: "is-pending" };
+      };
+
       const renderStats = (data) => {
         const stats = [
           ["Clientes cadastrados", customerUsers().length],
           ["Itens no catálogo", data.catalogItems.length],
           ["Motoristas", data.drivers.length],
           ["Pátios", data.yards.length],
-          ["Rastreios", data.trackings.length]
+          ["Rastreios", data.trackings.length],
+          ["Faturas", data.invoicesTotal || data.invoices?.length || 0]
         ];
 
         adminStats.innerHTML = stats
@@ -1141,8 +1224,81 @@
         );
       };
 
+      const renderInvoices = (invoices) => {
+        const users = customerUsers();
+
+        invoiceClientSelect.innerHTML = users.length
+          ? `<option value="">Selecione um cliente</option>${users
+              .map(
+                (user) =>
+                  `<option value="${user.id}">${user.full_name || "-"} • ${user.email || user.cpf || "Sem contato"}</option>`
+              )
+              .join("")}`
+          : '<option value="">Nenhum cliente cadastrado</option>';
+
+        invoicesList.innerHTML = invoices.length
+          ? invoices
+              .map((invoice) => {
+                const statusInfo = invoiceStatusInfo(invoice.status);
+                const dueDate = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString("pt-BR") : "Sem vencimento";
+                const createdAt = invoice.createdAt ? new Date(invoice.createdAt).toLocaleString("pt-BR") : "-";
+
+                return `
+                  <article class="admin-list-item">
+                    <strong>${invoice.title || "Fatura"}</strong>
+                    <span>${invoice.clientName || "Cliente"} • ${statusInfo.label}</span>
+                    <p>R$ ${Number(invoice.amount || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} • ${dueDate}</p>
+                    <p>${invoice.publicToken || "-"} • ${createdAt}</p>
+                    <div class="admin-list-item__actions">
+                      <a class="button button-secondary admin-card-action" href="${invoice.paymentUrl || "#"}" target="_blank" rel="noreferrer">Abrir link</a>
+                      <button class="button button-secondary admin-card-action" type="button" data-copy-invoice-link="${invoice.id}">Copiar link</button>
+                      <button class="button button-primary admin-card-action" type="button" data-sync-invoice="${invoice.id}">Sincronizar</button>
+                    </div>
+                  </article>
+                `;
+              })
+              .join("")
+          : '<div class="admin-empty">Nenhuma fatura criada ainda.</div>';
+
+        invoices.forEach((invoice) => {
+          const copyButton = document.querySelector(`[data-copy-invoice-link="${invoice.id}"]`);
+          const syncButton = document.querySelector(`[data-sync-invoice="${invoice.id}"]`);
+
+          if (copyButton) {
+            copyButton.addEventListener("click", async () => {
+              try {
+                await navigator.clipboard.writeText(invoice.paymentUrl || "");
+                copyButton.textContent = "Copiado";
+                setTimeout(() => {
+                  copyButton.textContent = "Copiar link";
+                }, 1600);
+              } catch (_error) {
+                copyButton.textContent = "Falha";
+              }
+            });
+          }
+
+          if (syncButton) {
+            syncButton.addEventListener("click", async () => {
+              try {
+                setStatus(invoiceStatus, "Sincronizando...");
+                await adminFetch(`/api/admin/invoices/${invoice.id}/sync`, { method: "POST" });
+                setStatus(invoiceStatus, "Fatura sincronizada com sucesso.");
+                await loadDashboard();
+                await loadInvoices();
+              } catch (error) {
+                setStatus(invoiceStatus, error.message, true);
+              }
+            });
+          }
+        });
+      };
+
       const renderDashboard = (data) => {
-        currentAdminData = data;
+        currentAdminData = {
+          ...data,
+          invoices: currentAdminData.invoices || data.invoices || []
+        };
         renderStats(data);
         renderUsers(data.users);
         renderCatalog(data.catalogItems);
@@ -1150,11 +1306,18 @@
         renderYards(data.yards);
         renderTrackings(data.trackings);
         renderTrackingSelects();
+        renderInvoices(currentAdminData.invoices || []);
       };
 
       const loadDashboard = async () => {
         const data = await adminFetch("/api/admin/dashboard");
         renderDashboard(data);
+      };
+
+      const loadInvoices = async () => {
+        const data = await adminFetch("/api/admin/invoices");
+        currentAdminData.invoices = data.invoices || [];
+        renderInvoices(currentAdminData.invoices);
       };
 
       const renderDriverPhotoPreview = () => {
@@ -1242,6 +1405,12 @@
           setStatus(catalogStatus, "");
         }
         renderImagePreview();
+      };
+
+      const resetInvoiceForm = () => {
+        invoiceForm.reset();
+        invoiceSubmitButton.textContent = "Gerar fatura";
+        setStatus(invoiceStatus, "");
       };
 
       const fillCatalogForm = (item) => {
@@ -1503,6 +1672,7 @@
           setStatus(adminLoginStatus, "Acesso liberado.");
           showDashboard();
           await loadDashboard();
+          await loadInvoices();
         } catch (error) {
           setStatus(adminLoginStatus, error.message, true);
         }
@@ -1667,6 +1837,37 @@
         }
       });
 
+      invoiceForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        setStatus(invoiceStatus, "Gerando fatura...");
+
+        try {
+          const formData = new FormData(invoiceForm);
+          const response = await adminFetch("/api/admin/invoices", {
+            method: "POST",
+            body: JSON.stringify({
+              clientUserId: formData.get("clientUserId"),
+              title: formData.get("title"),
+              amount: formData.get("amount"),
+              dueDate: formData.get("dueDate"),
+              description: formData.get("description")
+            })
+          });
+
+          resetInvoiceForm();
+          setStatus(invoiceStatus, "Fatura gerada com sucesso.");
+          activateTab("invoices");
+          await loadDashboard();
+          await loadInvoices();
+
+          if (response?.invoice?.paymentUrl) {
+            await navigator.clipboard.writeText(response.invoice.paymentUrl).catch(() => {});
+          }
+        } catch (error) {
+          setStatus(invoiceStatus, error.message, true);
+        }
+      });
+
       catalogForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         setStatus(catalogStatus, "Salvando...");
@@ -1722,6 +1923,7 @@
         try {
           showDashboard();
           await loadDashboard();
+          await loadInvoices();
         } catch (_error) {
           clearAuth();
           showLogin();

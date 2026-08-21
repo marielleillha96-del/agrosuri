@@ -30,6 +30,17 @@ import {
   updateDriver
 } from "./src/admin/repository.js";
 import {
+  createInvoice,
+  createInvoiceToken,
+  countInvoices,
+  findInvoiceById,
+  findInvoiceBySigiloTransactionId,
+  findInvoiceByPublicToken,
+  listInvoices,
+  syncInvoiceWithSigilo,
+} from "./src/invoices/repository.js";
+import { createSigiloPixPayment, fetchSigiloTransaction } from "./src/payments/sigilopay.js";
+import {
   comparePassword,
   hashPassword,
   signAccessToken,
@@ -53,6 +64,8 @@ const allowedOrigins = (process.env.CORS_ORIGIN || appUrl)
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
+const sigiloCallbackUrl =
+  process.env.SIGILO_CALLBACK_URL || new URL("/api/webhooks/sigilopay", appUrl).toString();
 
 app.use(express.json({ limit: "25mb" }));
 app.use((req, res, next) => {
@@ -132,6 +145,40 @@ const adminRequired = async (req, res, next) => {
 
   req.user = user;
   return next();
+};
+
+const normalizeInvoicePayload = (invoice) => {
+  if (!invoice) {
+    return null;
+  }
+
+  return {
+    id: invoice.id,
+    publicToken: invoice.publicToken,
+    clientUserId: invoice.clientUserId,
+    clientName: invoice.clientName,
+    clientEmail: invoice.clientEmail,
+    clientPhone: invoice.clientPhone,
+    clientDocument: invoice.clientDocument,
+    title: invoice.title,
+    amount: Number(invoice.amount || 0),
+    dueDate: invoice.dueDate,
+    description: invoice.description,
+    status: invoice.status,
+    sigiloTransactionId: invoice.sigiloTransactionId,
+    sigiloOrderId: invoice.sigiloOrderId,
+    sigiloPaymentMethod: invoice.sigiloPaymentMethod,
+    sigiloStatus: invoice.sigiloStatus,
+    pixCode: invoice.pixCode,
+    pixImage: invoice.pixImage,
+    paymentUrl: invoice.paymentUrl,
+    callbackUrl: invoice.callbackUrl,
+    sigiloDetails: invoice.sigiloDetails,
+    sigiloPayload: invoice.sigiloPayload,
+    paidAt: invoice.paidAt,
+    createdAt: invoice.createdAt,
+    updatedAt: invoice.updatedAt
+  };
 };
 
 app.post("/api/auth/register", async (req, res) => {
@@ -342,11 +389,217 @@ app.post("/api/auth/logout", async (req, res) => {
 
 app.get("/api/admin/dashboard", adminRequired, async (_req, res) => {
   try {
-    const data = await getAdminDashboardData();
-    return res.json(data);
+    const [data, invoicesTotal] = await Promise.all([getAdminDashboardData(), countInvoices()]);
+    return res.json({ ...data, invoicesTotal });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Erro ao carregar o painel admin." });
+  }
+});
+
+app.get("/api/admin/invoices", adminRequired, async (_req, res) => {
+  try {
+    const invoices = await listInvoices();
+    return res.json({ invoices });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Erro ao carregar faturas." });
+  }
+});
+
+app.post("/api/admin/invoices", adminRequired, async (req, res) => {
+  try {
+    const { clientUserId, title, amount, dueDate, description } = req.body;
+
+    if (!clientUserId || !title || amount === undefined || amount === null) {
+      return res.status(400).json({ message: "Selecione um cliente, informe o título e o valor da fatura." });
+    }
+
+    const client = await findUserById(String(clientUserId).trim());
+
+    if (!client || (client.role || "customer") === "admin") {
+      return res.status(404).json({ message: "Cliente não encontrado." });
+    }
+
+    if (!client.full_name || !client.email || !client.whatsapp || !client.cpf) {
+      return res.status(400).json({
+        message: "O cliente selecionado precisa ter nome, e-mail, WhatsApp e CPF cadastrados."
+      });
+    }
+
+    const amountNumber = Number(amount);
+    if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
+      return res.status(400).json({ message: "O valor da fatura deve ser maior que zero." });
+    }
+
+    const publicToken = createInvoiceToken();
+    const callbackUrl = sigiloCallbackUrl;
+
+    const sigiloResponse = await createSigiloPixPayment({
+      identifier: publicToken,
+      amount: amountNumber,
+      client: {
+        name: client.full_name,
+        email: client.email,
+        phone: client.whatsapp,
+        document: client.cpf
+      },
+      dueDate: dueDate || undefined,
+      metadata: {
+        provider: "AGRO SURI",
+        invoiceTitle: String(title).trim(),
+        invoiceToken: publicToken
+      },
+      callbackUrl
+    });
+
+    const paymentUrl = `${appUrl.replace(/\/$/, "")}/fatura.html?token=${publicToken}`;
+    const invoice = await createInvoice({
+      publicToken,
+      clientUserId: client.id,
+      clientName: client.full_name,
+      clientEmail: client.email,
+      clientPhone: client.whatsapp,
+      clientDocument: client.cpf,
+      title: String(title).trim(),
+      amount: amountNumber,
+      dueDate: dueDate || null,
+      description: description ? String(description).trim() : null,
+      sigiloTransactionId: sigiloResponse.transactionId || null,
+      sigiloOrderId: sigiloResponse.order?.id || null,
+      sigiloPaymentMethod: "PIX",
+      sigiloStatus: sigiloResponse.status || "PENDING",
+      pixCode: sigiloResponse.pix?.code || null,
+      pixImage: sigiloResponse.pix?.image || null,
+      paymentUrl,
+      callbackUrl,
+      sigiloDetails: sigiloResponse.details || null,
+      sigiloPayload: sigiloResponse,
+      status: sigiloResponse.status === "OK" ? "pending" : String(sigiloResponse.status || "pending").toLowerCase()
+    });
+
+    return res.status(201).json({ invoice: normalizeInvoicePayload(invoice) });
+  } catch (error) {
+    console.error(error);
+    const status = error.message.includes("SigiloPay não configuradas") ? 503 : 502;
+    return res.status(status).json({ message: error.message || "Erro ao gerar fatura." });
+  }
+});
+
+app.get("/api/admin/invoices/:id", adminRequired, async (req, res) => {
+  try {
+    const invoice = await findInvoiceById(String(req.params.id || "").trim());
+
+    if (!invoice) {
+      return res.status(404).json({ message: "Fatura não encontrada." });
+    }
+
+    return res.json({ invoice: normalizeInvoicePayload(invoice) });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Erro ao carregar fatura." });
+  }
+});
+
+app.post("/api/admin/invoices/:id/sync", adminRequired, async (req, res) => {
+  try {
+    const invoice = await findInvoiceById(String(req.params.id || "").trim());
+
+    if (!invoice) {
+      return res.status(404).json({ message: "Fatura não encontrada." });
+    }
+
+    const transaction = await fetchSigiloTransaction({
+      id: invoice.sigiloTransactionId,
+      clientIdentifier: invoice.publicToken
+    });
+
+    const updatedInvoice = await syncInvoiceWithSigilo(invoice, transaction);
+    return res.json({ invoice: normalizeInvoicePayload(updatedInvoice) });
+  } catch (error) {
+    console.error(error);
+    return res.status(502).json({ message: error.message || "Erro ao sincronizar fatura." });
+  }
+});
+
+app.get("/api/invoices/public/:token", async (req, res) => {
+  try {
+    const invoice = await findInvoiceByPublicToken(String(req.params.token || "").trim());
+
+    if (!invoice) {
+      return res.status(404).json({ message: "Fatura não encontrada." });
+    }
+
+    return res.json({ invoice: normalizeInvoicePayload(invoice) });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Erro ao carregar fatura pública." });
+  }
+});
+
+app.post("/api/invoices/public/:token/sync", async (req, res) => {
+  try {
+    const invoice = await findInvoiceByPublicToken(String(req.params.token || "").trim());
+
+    if (!invoice) {
+      return res.status(404).json({ message: "Fatura não encontrada." });
+    }
+
+    if (!invoice.sigiloTransactionId && !invoice.publicToken) {
+      return res.json({ invoice: normalizeInvoicePayload(invoice) });
+    }
+
+    const transaction = await fetchSigiloTransaction({
+      id: invoice.sigiloTransactionId,
+      clientIdentifier: invoice.publicToken
+    });
+
+    const updatedInvoice = await syncInvoiceWithSigilo(invoice, transaction);
+    return res.json({ invoice: normalizeInvoicePayload(updatedInvoice) });
+  } catch (error) {
+    console.error(error);
+    return res.status(502).json({ message: error.message || "Erro ao sincronizar fatura." });
+  }
+});
+
+app.post("/api/webhooks/sigilopay", async (req, res) => {
+  try {
+    const payload = req.body || {};
+    const expectedToken = process.env.SIGILO_WEBHOOK_TOKEN;
+
+    if (expectedToken && payload.token !== expectedToken) {
+      return res.status(401).json({ message: "Token de webhook inválido." });
+    }
+
+    const transaction = payload.transaction || {};
+    const transactionId = payload.transactionId || transaction.id;
+    const clientIdentifier = transaction.identifier || payload.clientIdentifier;
+    const invoice =
+      (transactionId && (await findInvoiceBySigiloTransactionId(transactionId))) ||
+      (clientIdentifier && (await findInvoiceByPublicToken(String(clientIdentifier).trim())));
+
+    if (!invoice) {
+      return res.json({ received: true, matched: false });
+    }
+
+    const normalizedTransaction = {
+      ...transaction,
+      id: transactionId || transaction.id || invoice.sigiloTransactionId,
+      status: transaction.status || payload.status || invoice.sigiloStatus,
+      paymentMethod: transaction.paymentMethod || invoice.sigiloPaymentMethod || "PIX",
+      payedAt: transaction.payedAt || null,
+      pixInformation: transaction.pixInformation || payload.pixInformation || {
+        qrCode: payload.pix?.code || payload.pixInformation?.qrCode || invoice.pixCode || null,
+        image: payload.pix?.image || payload.pixInformation?.image || invoice.pixImage || null
+      },
+      details: payload.details || transaction.details || null
+    };
+
+    await syncInvoiceWithSigilo(invoice, normalizedTransaction);
+    return res.json({ received: true, matched: true });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Erro ao processar webhook da SigiloPay." });
   }
 });
 
@@ -739,6 +992,7 @@ app.get("/catalog-api-detail", handleCatalogDetail);
   ["/login", "login.html"],
   ["/cadastro", "cadastro.html"],
   ["/rastreio", "rastreio.html"],
+  ["/fatura", "fatura.html"],
   ["/detalhe", "detalhe.html"],
   ["/", "index.html"]
 ].forEach(([routePath, fileName]) => {
