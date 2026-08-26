@@ -169,6 +169,12 @@
         });
 
       const vehicleWhatsApp = () => "5511948790154";
+      const vehicleWhatsAppUrl = (title) => {
+        const message = title
+          ? `Olá, tenho interesse no veículo ${title} da AGRO SURI.`
+          : "Olá, tenho interesse em um veículo do catálogo da AGRO SURI.";
+        return `https://wa.me/${vehicleWhatsApp()}?text=${encodeURIComponent(message)}`;
+      };
 
       const getItemImage = (item) => {
         const galleryImages = Array.isArray(item.gallery_images) ? item.gallery_images : [];
@@ -196,7 +202,7 @@
                 <div class="price-block">
                   <strong>${formatCurrency(item.price)}</strong>
                 </div>
-                <a class="whatsapp-btn" href="https://wa.me/${vehicleWhatsApp()}" aria-label="Enviar mensagem">✦</a>
+                <a class="whatsapp-btn" href="${vehicleWhatsAppUrl(item.title)}" aria-label="Enviar mensagem">✦</a>
               </div>
             </div>
           </article>
