@@ -242,6 +242,8 @@
           currency: "BRL"
         });
 
+      const vehicleWhatsApp = () => "5511948790154";
+
       const getGallery = (item) => {
         const galleryImages = Array.isArray(item.gallery_images) ? item.gallery_images : [];
         return galleryImages.length ? galleryImages : [item.image_url].filter(Boolean);
@@ -323,7 +325,6 @@
 
       const createRelatedCard = (item) => {
         const gallery = getGallery(item);
-        const whatsapp = (item.whatsapp || "5511948790154").replace(/\D/g, "");
         return `
           <article class="product-card" data-detail="./detalhe.html?slug=${item.slug}">
             <div class="product-media">
@@ -339,7 +340,7 @@
                 <div class="price-block">
                   <strong>${formatCurrency(item.price)}</strong>
                 </div>
-                <a class="whatsapp-btn" href="https://wa.me/${whatsapp}" aria-label="Enviar mensagem">✦</a>
+                <a class="whatsapp-btn" href="https://wa.me/${vehicleWhatsApp()}" aria-label="Enviar mensagem">✦</a>
               </div>
             </div>
           </article>
@@ -365,7 +366,6 @@
 
           const item = detailData.item;
           const gallery = getGallery(item);
-          const whatsapp = (item.whatsapp || "5511948790154").replace(/\D/g, "");
 
           document.title = `AGRO SURI | ${item.title}`;
           detailTitle.textContent = item.title;
@@ -373,8 +373,8 @@
           detailBadge.textContent = item.badge || item.category || "Catálogo";
           detailLocation.textContent = item.location || "Local sob consulta";
           detailPrice.textContent = formatCurrency(item.price);
-          detailWhatsappButton.href = `https://wa.me/${whatsapp}`;
-          detailBuyButton.href = `https://wa.me/${whatsapp}`;
+          detailWhatsappButton.href = `https://wa.me/${vehicleWhatsApp()}`;
+          detailBuyButton.href = `https://wa.me/${vehicleWhatsApp()}`;
 
           detailThumbs.innerHTML = gallery
             .map(

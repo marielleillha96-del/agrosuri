@@ -168,13 +168,14 @@
           currency: "BRL"
         });
 
+      const vehicleWhatsApp = () => "5511948790154";
+
       const getItemImage = (item) => {
         const galleryImages = Array.isArray(item.gallery_images) ? item.gallery_images : [];
         return galleryImages[0] || item.image_url || "";
       };
 
       const createProductCard = (item) => {
-        const whatsapp = (item.whatsapp || "5511948790154").replace(/\D/g, "");
         const image = getItemImage(item);
         const photoCount = Array.isArray(item.gallery_images) && item.gallery_images.length
           ? item.gallery_images.length
@@ -195,7 +196,7 @@
                 <div class="price-block">
                   <strong>${formatCurrency(item.price)}</strong>
                 </div>
-                <a class="whatsapp-btn" href="https://wa.me/${whatsapp}" aria-label="Enviar mensagem">✦</a>
+                <a class="whatsapp-btn" href="https://wa.me/${vehicleWhatsApp()}" aria-label="Enviar mensagem">✦</a>
               </div>
             </div>
           </article>
