@@ -16,7 +16,7 @@ const normalizeItem = (row) => ({
   yearLabel: row.year_label || null,
   imageUrl: row.image_url || null,
   galleryImages: Array.isArray(row.gallery_images) ? row.gallery_images : [],
-  whatsapp: row.whatsapp || "5512997371569",
+  whatsapp: row.whatsapp || "5511948790154",
   badge: row.badge || "Máquinas",
   galleryCount: Number(row.gallery_count || 0),
   description: row.description || null

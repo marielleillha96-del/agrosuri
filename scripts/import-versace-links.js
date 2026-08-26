@@ -6,7 +6,7 @@ import { pool } from "../src/auth/db.js";
 const SOURCE_SUPABASE_URL = "https://wnyvtrsnmuquatltnyer.supabase.co";
 const SOURCE_SUPABASE_KEY = "sb_publishable_C0x2HxQ0jveNvu7O50SS2Q_oD6hCwy_";
 
-const DEFAULT_WHATSAPP = process.env.DEFAULT_WHATSAPP || "5512997371569";
+const DEFAULT_WHATSAPP = process.env.DEFAULT_WHATSAPP || "5511948790154";
 const DEFAULT_BADGE = process.env.DEFAULT_IMPORT_BADGE || "Máquinas";
 const DEFAULT_SECTIONS = (process.env.DEFAULT_IMPORT_SECTIONS || "catalogo").split(",").map((value) => value.trim()).filter(Boolean);
 
@@ -234,7 +234,7 @@ const main = async () => {
     console.log("  --reset                 apaga o catálogo atual antes de importar");
     console.log("  --sections=catalogo,destaques,relacionados");
     console.log("  --badge=Máquinas");
-    console.log("  --whatsapp=5512997371569");
+    console.log("  --whatsapp=5511948790154");
     console.log("  --category=Colheitadeiras");
     console.log("  --year-label=2012");
     console.log("  --location=São Paulo, SP");

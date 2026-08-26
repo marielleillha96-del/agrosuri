@@ -147,7 +147,7 @@ export const ensureDefaultAdminUser = async () => {
     return createUser({
       fullName: "Administrador AGRO SURI",
       email: DEFAULT_ADMIN_EMAIL,
-      whatsapp: "(43) 99999-9999",
+      whatsapp: "+55 11 94879-0154",
       cpf: "000.000.000-00",
       cep: "00000-000",
       address: "Painel Administrativo",
@@ -195,7 +195,7 @@ export const ensureDefaultCatalogItems = async () => {
             item.yearLabel,
             item.imageUrl,
             JSON.stringify(Array.isArray(item.galleryImages) && item.galleryImages.length ? item.galleryImages : [item.imageUrl]),
-            item.whatsapp || "5542991645618",
+            item.whatsapp || "5511948790154",
             item.badge || item.category,
             item.galleryCount || (Array.isArray(item.galleryImages) && item.galleryImages.length ? item.galleryImages.length : 1),
             item.description

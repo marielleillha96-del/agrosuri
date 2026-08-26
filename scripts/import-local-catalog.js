@@ -187,7 +187,7 @@ const prepareItems = () =>
       imageUrl: galleryImages[0],
       galleryImages,
       galleryCount: galleryImages.length,
-      whatsapp: "5512997371569"
+      whatsapp: "5511948790154"
     };
   });
 
