@@ -49,7 +49,7 @@
 
       <section class="admin-dashboard hidden" id="adminDashboard">
         <section class="admin-layout">
-          <aside class="admin-sidebar">
+          <aside class="admin-sidebar" id="adminSidebar">
             <div class="admin-sidebar__brand">
               <h2>Painel Admin</h2>
             </div>
@@ -110,7 +110,13 @@
 
           <div class="admin-content">
             <header class="admin-topbar">
+              <button class="admin-topbar__menu" type="button" id="adminMenuToggle" aria-label="Abrir menu do painel">
+                <span></span>
+                <span></span>
+                <span></span>
+              </button>
               <div>
+                <p class="admin-topbar__eyebrow" id="adminCurrentTabLabel">Painel</p>
                 <h1>Painel de Controle</h1>
               </div>
             </header>
@@ -502,6 +508,7 @@
             </div>
           </div>
         </section>
+        <div class="admin-sidebar-backdrop hidden" id="adminSidebarBackdrop" aria-hidden="true"></div>
       </section>
     </main>
 
@@ -682,6 +689,10 @@
       const adminLoginForm = document.getElementById("adminLoginForm");
       const adminLoginStatus = document.getElementById("adminLoginStatus");
       const adminLogoutButton = document.getElementById("adminLogoutButton");
+      const adminSidebar = document.getElementById("adminSidebar");
+      const adminMenuToggle = document.getElementById("adminMenuToggle");
+      const adminSidebarBackdrop = document.getElementById("adminSidebarBackdrop");
+      const adminCurrentTabLabel = document.getElementById("adminCurrentTabLabel");
       const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
       const tabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
 
@@ -801,6 +812,17 @@
         element.classList.toggle("is-error", error);
       };
 
+      const tabLabels = {
+        overview: "Painel",
+        clients: "Clientes",
+        vehicles: "Vitrine",
+        drivers: "Motoristas",
+        yards: "Pátios",
+        trackings: "Rastreios",
+        invoices: "Faturas",
+        contracts: "Contratos"
+      };
+
       const formatInputDate = (date) => date.toISOString().slice(0, 10);
       const getTomorrowDateValue = () => formatInputDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
       const formatContractDate = (value) => {
@@ -883,6 +905,7 @@
       const showLogin = () => {
         dashboardSection.classList.add("hidden");
         loginSection.classList.remove("hidden");
+        closeAdminMenu();
       };
 
       const activateTab = (target) => {
@@ -892,6 +915,26 @@
         tabPanels.forEach((panel) => {
           panel.classList.toggle("is-active", panel.dataset.tabPanel === target);
         });
+        if (adminCurrentTabLabel) {
+          adminCurrentTabLabel.textContent = tabLabels[target] || "Painel";
+        }
+        closeAdminMenu();
+      };
+
+      const openAdminMenu = () => {
+        dashboardSection.classList.add("is-menu-open");
+        document.body.classList.add("admin-menu-open");
+        adminMenuToggle?.setAttribute("aria-expanded", "true");
+        adminSidebarBackdrop?.classList.remove("hidden");
+      };
+
+      const closeAdminMenu = () => {
+        dashboardSection.classList.remove("is-menu-open");
+        document.body.classList.remove("admin-menu-open");
+        adminMenuToggle?.setAttribute("aria-expanded", "false");
+        if (adminSidebarBackdrop) {
+          adminSidebarBackdrop.classList.add("hidden");
+        }
       };
 
       tabButtons.forEach((button) => {
@@ -901,6 +944,31 @@
             setContractTab("acquisition");
           }
         });
+      });
+
+      adminMenuToggle?.addEventListener("click", () => {
+        if (dashboardSection.classList.contains("is-menu-open")) {
+          closeAdminMenu();
+          return;
+        }
+
+        openAdminMenu();
+      });
+
+      adminSidebarBackdrop?.addEventListener("click", () => {
+        closeAdminMenu();
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeAdminMenu();
+        }
+      });
+
+      window.addEventListener("resize", () => {
+        if (window.innerWidth > 920) {
+          closeAdminMenu();
+        }
       });
 
       const openModal = (modal) => {
