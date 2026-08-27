@@ -585,8 +585,13 @@ const handleIronWebhook = async (req, res) => {
   try {
     const payload = req.body || {};
     const expectedToken = process.env.IRON_WEBHOOK_TOKEN;
+    const incomingToken =
+      payload.token ||
+      req.query?.token ||
+      req.headers["x-webhook-token"] ||
+      req.headers["x-ironpay-token"];
 
-    if (expectedToken && payload.token !== expectedToken) {
+    if (expectedToken && incomingToken && incomingToken !== expectedToken) {
       return res.status(401).json({ message: "Token de webhook inválido." });
     }
 

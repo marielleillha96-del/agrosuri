@@ -136,12 +136,6 @@ export const ensureInvoiceSchema = async () => {
         updated_at timestamptz not null default timezone('utc', now())
       );
 
-      create index if not exists app_invoices_public_token_idx on public.app_invoices (public_token);
-      create index if not exists app_invoices_client_user_id_idx on public.app_invoices (client_user_id);
-      create index if not exists app_invoices_status_idx on public.app_invoices (status);
-      create index if not exists app_invoices_iron_transaction_hash_idx on public.app_invoices (iron_transaction_hash);
-      create index if not exists app_invoices_sigilo_transaction_id_idx on public.app_invoices (sigilo_transaction_id);
-
       alter table public.app_invoices
         add column if not exists iron_transaction_hash text;
       alter table public.app_invoices
@@ -158,6 +152,12 @@ export const ensureInvoiceSchema = async () => {
         add column if not exists iron_details jsonb not null default '{}'::jsonb;
       alter table public.app_invoices
         add column if not exists iron_payload jsonb not null default '{}'::jsonb;
+
+      create index if not exists app_invoices_public_token_idx on public.app_invoices (public_token);
+      create index if not exists app_invoices_client_user_id_idx on public.app_invoices (client_user_id);
+      create index if not exists app_invoices_status_idx on public.app_invoices (status);
+      create index if not exists app_invoices_iron_transaction_hash_idx on public.app_invoices (iron_transaction_hash);
+      create index if not exists app_invoices_sigilo_transaction_id_idx on public.app_invoices (sigilo_transaction_id);
 
       drop trigger if exists set_app_invoices_updated_at on public.app_invoices;
       create trigger set_app_invoices_updated_at

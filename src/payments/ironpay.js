@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE_URL = "https://api.ironpayapp.com.br/api/v1";
+const DEFAULT_API_BASE_URL = "https://api.ironpayapp.com.br/api/public/v1";
 
 const getApiBaseUrl = () => process.env.IRON_API_BASE_URL || DEFAULT_API_BASE_URL;
 const getApiToken = () => process.env.IRON_API_TOKEN || process.env.IRONPAY_API_TOKEN;
