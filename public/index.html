@@ -163,10 +163,12 @@
       const homeFeaturedGrid = document.getElementById("homeFeaturedGrid");
 
       const formatCurrency = (value) =>
-        Number(value || 0).toLocaleString("pt-BR", {
-          style: "currency",
-          currency: "BRL"
-        });
+        Number(value || 0) > 0
+          ? Number(value).toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL"
+            })
+          : "Sob consulta";
 
       const vehicleWhatsApp = () => "5511948790154";
       const vehicleWhatsAppUrl = (title) => {

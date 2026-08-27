@@ -140,6 +140,36 @@ export const DEFAULT_CATALOG_ITEMS = [
     "description": null
   },
   {
+    "title": "TOYOTA HILUX 3.0 SRV 4X4 CD",
+    "slug": "toyota-hilux-3-0-srv-4x4-cd",
+    "category": "Picapes",
+    "sections": [
+      "catalogo",
+      "destaques",
+      "relacionados"
+    ],
+    "price": 0,
+    "location": "Sob consulta",
+    "yearLabel": "2009/2010",
+    "imageUrl": "/catalogo-assets/toyota-hilux-3-0-srv-4x4-cd/01.jpg",
+    "galleryImages": [
+      "/catalogo-assets/toyota-hilux-3-0-srv-4x4-cd/01.jpg",
+      "/catalogo-assets/toyota-hilux-3-0-srv-4x4-cd/02.jpg",
+      "/catalogo-assets/toyota-hilux-3-0-srv-4x4-cd/03.jpg",
+      "/catalogo-assets/toyota-hilux-3-0-srv-4x4-cd/04.jpg",
+      "/catalogo-assets/toyota-hilux-3-0-srv-4x4-cd/05.jpg",
+      "/catalogo-assets/toyota-hilux-3-0-srv-4x4-cd/06.jpg",
+      "/catalogo-assets/toyota-hilux-3-0-srv-4x4-cd/07.jpg",
+      "/catalogo-assets/toyota-hilux-3-0-srv-4x4-cd/08.jpg",
+      "/catalogo-assets/toyota-hilux-3-0-srv-4x4-cd/09.jpg",
+      "/catalogo-assets/toyota-hilux-3-0-srv-4x4-cd/10.jpg"
+    ],
+    "whatsapp": "5511948790154",
+    "badge": "Picapes",
+    "galleryCount": 10,
+    "description": "16V TURBO INTERCOOLER\nDIESEL\nAUTOMÁTICO\n2009/2010"
+  },
+  {
     "title": "CLIO EXPRESSION 1.0 16V",
     "slug": "clio-expression-1-0-16v",
     "category": "Automóveis",
