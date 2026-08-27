@@ -13,16 +13,16 @@ import {
 } from "../src/admin/repository.js";
 import { createContract, createContractToken, listContracts } from "../src/contracts/repository.js";
 import { renderAcquisitionContractHtml } from "../src/contracts/template.js";
-import { createInvoice, createInvoiceToken, findInvoiceById, listInvoices, syncInvoiceWithSigilo } from "../src/invoices/repository.js";
-import { createSigiloPixPayment, fetchSigiloTransaction } from "../src/payments/sigilopay.js";
+import { createInvoice, createInvoiceToken, findInvoiceById, listInvoices, syncInvoiceWithIron } from "../src/invoices/repository.js";
+import { createIronPixPayment, fetchIronTransaction } from "../src/payments/ironpay.js";
 import { requireAdmin } from "./_lib/admin.js";
 import { handleOptions, readJsonBody, sendJson, getQueryParam } from "./_lib/http.js";
 import { onlyDigits, sanitizeUser } from "../src/auth/utils.js";
 import { hashPassword } from "../src/auth/security.js";
 
 const appUrl = process.env.APP_URL || "http://localhost:3000";
-const sigiloCallbackUrl =
-  process.env.SIGILO_CALLBACK_URL || new URL("/api/webhooks/sigilopay", appUrl).toString();
+const ironCallbackUrl =
+  process.env.IRON_CALLBACK_URL || new URL("/api/webhooks/ironpay", appUrl).toString();
 
 const getTodayInSaoPaulo = () =>
   new Intl.DateTimeFormat("en-CA", {
@@ -52,6 +52,14 @@ const normalizeInvoicePayload = (invoice) => {
     dueDate: invoice.dueDate,
     description: invoice.description,
     status: invoice.status,
+    ironTransactionHash: invoice.ironTransactionHash || invoice.sigiloTransactionId,
+    ironOfferHash: invoice.ironOfferHash || null,
+    ironPaymentMethod: invoice.ironPaymentMethod || invoice.sigiloPaymentMethod,
+    ironStatus: invoice.ironStatus || invoice.sigiloStatus,
+    ironPixCode: invoice.ironPixCode || invoice.pixCode,
+    ironPixImage: invoice.ironPixImage || invoice.pixImage,
+    ironDetails: invoice.ironDetails || invoice.sigiloDetails,
+    ironPayload: invoice.ironPayload || invoice.sigiloPayload,
     sigiloTransactionId: invoice.sigiloTransactionId,
     sigiloOrderId: invoice.sigiloOrderId,
     sigiloPaymentMethod: invoice.sigiloPaymentMethod,
@@ -562,7 +570,7 @@ export default async function handler(req, res) {
         }
 
         const publicToken = createInvoiceToken();
-        const sigiloResponse = await createSigiloPixPayment({
+        const ironResponse = await createIronPixPayment({
           identifier: publicToken,
           amount: amountNumber,
           client: {
@@ -577,8 +585,11 @@ export default async function handler(req, res) {
             invoiceTitle: String(title).trim(),
             invoiceToken: publicToken
           },
-          callbackUrl: sigiloCallbackUrl
+          callbackUrl: ironCallbackUrl
         });
+
+        const ironStatusValue = String(ironResponse.paymentStatus || ironResponse.status || "pending").toLowerCase();
+        const normalizedInvoiceStatus = ironStatusValue === "ok" ? "pending" : ironStatusValue;
 
         const paymentUrl = `${appUrl.replace(/\/$/, "")}/fatura?token=${publicToken}`;
         const invoice = await createInvoice({
@@ -592,17 +603,25 @@ export default async function handler(req, res) {
           amount: amountNumber,
           dueDate: dueDate || null,
           description: description ? String(description).trim() : null,
-          sigiloTransactionId: sigiloResponse.transactionId || null,
-          sigiloOrderId: sigiloResponse.order?.id || null,
-          sigiloPaymentMethod: "PIX",
-          sigiloStatus: sigiloResponse.status || "PENDING",
-          pixCode: sigiloResponse.pix?.code || null,
-          pixImage: sigiloResponse.pix?.image || null,
+          ironTransactionHash: ironResponse.hash || ironResponse.id || null,
+          ironOfferHash: ironResponse.order?.offerHash || ironResponse.offerHash || null,
+          ironPaymentMethod: ironResponse.paymentMethod || "pix",
+          ironStatus: normalizedInvoiceStatus,
+          ironPixCode: ironResponse.pix?.code || null,
+          ironPixImage: ironResponse.pix?.image || null,
+          pixCode: ironResponse.pix?.code || null,
+          pixImage: ironResponse.pix?.image || null,
           paymentUrl,
-          callbackUrl: sigiloCallbackUrl,
-          sigiloDetails: sigiloResponse.details || null,
-          sigiloPayload: sigiloResponse,
-          status: sigiloResponse.status === "OK" ? "pending" : String(sigiloResponse.status || "pending").toLowerCase()
+          callbackUrl: ironCallbackUrl,
+          ironDetails: ironResponse.details || null,
+          ironPayload: ironResponse.raw || ironResponse,
+          sigiloTransactionId: ironResponse.hash || null,
+          sigiloOrderId: ironResponse.order?.id || null,
+          sigiloPaymentMethod: (ironResponse.paymentMethod || "pix").toUpperCase(),
+          sigiloStatus: normalizedInvoiceStatus,
+          sigiloDetails: ironResponse.details || null,
+          sigiloPayload: ironResponse.raw || ironResponse,
+          status: normalizedInvoiceStatus
         });
 
         return sendJson(req, res, 201, { invoice: normalizeInvoicePayload(invoice) });
@@ -626,12 +645,12 @@ export default async function handler(req, res) {
         return sendJson(req, res, 404, { message: "Fatura não encontrada." });
       }
 
-      const transaction = await fetchSigiloTransaction({
-        id: invoice.sigiloTransactionId,
-        clientIdentifier: invoice.publicToken
+      const transaction = await fetchIronTransaction({
+        id: invoice.ironTransactionHash || invoice.sigiloTransactionId,
+        identifier: invoice.publicToken
       });
 
-      const updatedInvoice = await syncInvoiceWithSigilo(invoice, transaction);
+      const updatedInvoice = await syncInvoiceWithIron(invoice, transaction);
       return sendJson(req, res, 200, { invoice: normalizeInvoicePayload(updatedInvoice) });
     }
 
@@ -668,7 +687,12 @@ export default async function handler(req, res) {
     }
 
     if (action === "invoices") {
-      return sendJson(req, res, 500, { message: "Erro ao gerar fatura." });
+      return sendJson(
+        req,
+        res,
+        String(error.message || "").includes("IronPay") ? 503 : 500,
+        { message: error.message || "Erro ao gerar fatura." }
+      );
     }
 
     if (action === "invoices-sync") {

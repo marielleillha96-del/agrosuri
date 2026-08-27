@@ -71,6 +71,14 @@ const serializeInvoice = (row) => {
     dueDate: row.due_date,
     description: row.description,
     status: row.paid_at ? "paid" : row.status,
+    ironTransactionHash: row.iron_transaction_hash || row.sigilo_transaction_id || null,
+    ironOfferHash: row.iron_offer_hash || null,
+    ironPaymentMethod: row.iron_payment_method || row.sigilo_payment_method || null,
+    ironStatus: row.iron_status || row.sigilo_status || null,
+    ironPixCode: row.iron_pix_code || row.pix_code || null,
+    ironPixImage: row.iron_pix_image || row.pix_image || null,
+    ironDetails: row.iron_details || row.sigilo_details || null,
+    ironPayload: row.iron_payload || row.sigilo_payload || null,
     sigiloTransactionId: row.sigilo_transaction_id,
     sigiloOrderId: row.sigilo_order_id,
     sigiloPaymentMethod: row.sigilo_payment_method,
@@ -105,6 +113,14 @@ export const ensureInvoiceSchema = async () => {
         due_date date,
         description text,
         status text not null default 'pending',
+        iron_transaction_hash text unique,
+        iron_offer_hash text,
+        iron_payment_method text not null default 'pix',
+        iron_status text,
+        iron_pix_code text,
+        iron_pix_image text,
+        iron_details jsonb not null default '{}'::jsonb,
+        iron_payload jsonb not null default '{}'::jsonb,
         sigilo_transaction_id text unique,
         sigilo_order_id text,
         sigilo_payment_method text not null default 'PIX',
@@ -123,7 +139,25 @@ export const ensureInvoiceSchema = async () => {
       create index if not exists app_invoices_public_token_idx on public.app_invoices (public_token);
       create index if not exists app_invoices_client_user_id_idx on public.app_invoices (client_user_id);
       create index if not exists app_invoices_status_idx on public.app_invoices (status);
+      create index if not exists app_invoices_iron_transaction_hash_idx on public.app_invoices (iron_transaction_hash);
       create index if not exists app_invoices_sigilo_transaction_id_idx on public.app_invoices (sigilo_transaction_id);
+
+      alter table public.app_invoices
+        add column if not exists iron_transaction_hash text;
+      alter table public.app_invoices
+        add column if not exists iron_offer_hash text;
+      alter table public.app_invoices
+        add column if not exists iron_payment_method text not null default 'pix';
+      alter table public.app_invoices
+        add column if not exists iron_status text;
+      alter table public.app_invoices
+        add column if not exists iron_pix_code text;
+      alter table public.app_invoices
+        add column if not exists iron_pix_image text;
+      alter table public.app_invoices
+        add column if not exists iron_details jsonb not null default '{}'::jsonb;
+      alter table public.app_invoices
+        add column if not exists iron_payload jsonb not null default '{}'::jsonb;
 
       drop trigger if exists set_app_invoices_updated_at on public.app_invoices;
       create trigger set_app_invoices_updated_at
@@ -149,6 +183,14 @@ export const createInvoice = async ({
   amount,
   dueDate = null,
   description = null,
+  ironTransactionHash = null,
+  ironOfferHash = null,
+  ironPaymentMethod = "pix",
+  ironStatus = "pending",
+  ironPixCode = null,
+  ironPixImage = null,
+  ironDetails = {},
+  ironPayload = {},
   sigiloTransactionId = null,
   sigiloOrderId = null,
   sigiloPaymentMethod = "PIX",
@@ -168,15 +210,16 @@ export const createInvoice = async ({
     `
       insert into public.app_invoices (
         public_token, client_user_id, client_name, client_email, client_phone, client_document,
-        title, amount, due_date, description, status, sigilo_transaction_id, sigilo_order_id,
-        sigilo_payment_method, sigilo_status, pix_code, pix_image, payment_url, callback_url,
-        sigilo_details, sigilo_payload, paid_at
+        title, amount, due_date, description, status, iron_transaction_hash, iron_offer_hash,
+        iron_payment_method, iron_status, iron_pix_code, iron_pix_image, iron_details, iron_payload,
+        sigilo_transaction_id, sigilo_order_id, sigilo_payment_method, sigilo_status, pix_code, pix_image,
+        payment_url, callback_url, sigilo_details, sigilo_payload, paid_at
       )
       values (
         $1,$2,$3,$4,$5,$6,
         $7,$8,$9,$10,$11,$12,$13,
-        $14,$15,$16,$17,$18,$19,
-        $20::jsonb,$21::jsonb,$22
+        $14,$15,$16,$17,$18::jsonb,$19::jsonb,$20,$21,$22,$23,$24,$25,$26,
+        $27,$28::jsonb,$29::jsonb,$30
       )
       returning *
     `,
@@ -192,6 +235,14 @@ export const createInvoice = async ({
       dueDate || null,
       description,
       status,
+      ironTransactionHash,
+      ironOfferHash,
+      ironPaymentMethod,
+      ironStatus,
+      ironPixCode,
+      ironPixImage,
+      JSON.stringify(ironDetails || {}),
+      JSON.stringify(ironPayload || {}),
       sigiloTransactionId,
       sigiloOrderId,
       sigiloPaymentMethod,
@@ -255,6 +306,17 @@ export const findInvoiceBySigiloTransactionId = async (transactionId) => {
   return serializeInvoice(rows[0] || null);
 };
 
+export const findInvoiceByIronTransactionHash = async (transactionHash) => {
+  await ensureInvoiceSchema();
+
+  const { rows } = await pool.query(
+    `select * from public.app_invoices where iron_transaction_hash = $1 limit 1`,
+    [transactionHash]
+  );
+
+  return serializeInvoice(rows[0] || null);
+};
+
 export const updateInvoiceByPublicToken = async (publicToken, changes) => {
   await ensureInvoiceSchema();
 
@@ -279,6 +341,14 @@ export const updateInvoiceByPublicToken = async (publicToken, changes) => {
   pushField("due_date", changes.dueDate);
   pushField("description", changes.description);
   pushField("status", changes.status);
+  pushField("iron_transaction_hash", changes.ironTransactionHash);
+  pushField("iron_offer_hash", changes.ironOfferHash);
+  pushField("iron_payment_method", changes.ironPaymentMethod);
+  pushField("iron_status", changes.ironStatus);
+  pushField("iron_pix_code", changes.ironPixCode);
+  pushField("iron_pix_image", changes.ironPixImage);
+  pushField("iron_details", changes.ironDetails ? JSON.stringify(changes.ironDetails) : undefined);
+  pushField("iron_payload", changes.ironPayload ? JSON.stringify(changes.ironPayload) : undefined);
   pushField("sigilo_transaction_id", changes.sigiloTransactionId);
   pushField("sigilo_order_id", changes.sigiloOrderId);
   pushField("sigilo_payment_method", changes.sigiloPaymentMethod);
@@ -308,51 +378,78 @@ export const updateInvoiceByPublicToken = async (publicToken, changes) => {
   return serializeInvoice(rows[0] || null);
 };
 
-export const updateInvoiceFromSigilo = async (publicToken, sigiloPayload) => {
-  const transaction = sigiloPayload?.transaction || {};
-  const pixInformation = sigiloPayload?.pix || sigiloPayload?.pixInformation || {};
+export const updateInvoiceFromIron = async (publicToken, ironPayload) => {
+  const transaction = ironPayload?.transaction || ironPayload?.data || ironPayload || {};
+  const pixInformation = ironPayload?.pix || ironPayload?.pixInformation || transaction.pix || {};
+  const paymentStatus = String(
+    transaction.payment_status || transaction.status || ironPayload?.payment_status || ironPayload?.status || ""
+  ).trim();
+  const paymentMethod = String(
+    transaction.payment_method || ironPayload?.payment_method || "pix"
+  ).trim();
 
   return updateInvoiceByPublicToken(publicToken, {
-    sigiloTransactionId: sigiloPayload?.transactionId || transaction.id || null,
-    sigiloOrderId: sigiloPayload?.order?.id || sigiloPayload?.orderId || null,
-    sigiloPaymentMethod: transaction.paymentMethod || "PIX",
-    sigiloStatus: transaction.status || sigiloPayload?.status || null,
-    pixCode: pixInformation.code || pixInformation.qrCode || null,
-    pixImage: pixInformation.image || null,
+    ironTransactionHash: ironPayload?.transactionId || ironPayload?.hash || transaction.hash || transaction.id || null,
+    ironOfferHash: transaction.offer_hash || ironPayload?.offer_hash || null,
+    ironPaymentMethod: paymentMethod || "pix",
+    ironStatus: paymentStatus || null,
+    ironPixCode: pixInformation.code || pixInformation.qrCode || pixInformation.pix_copy_paste || null,
+    ironPixImage: pixInformation.image || pixInformation.pix_image || null,
+    pixCode: pixInformation.code || pixInformation.qrCode || pixInformation.pix_copy_paste || null,
+    pixImage: pixInformation.image || pixInformation.pix_image || null,
     status: resolveInvoiceStatus({
-      status: transaction.status || sigiloPayload?.status || "pending",
-      payedAt: transaction.payedAt || sigiloPayload?.payedAt || null,
-      event: sigiloPayload?.event || transaction.event
+      status: paymentStatus || "pending",
+      payedAt: transaction.payedAt || ironPayload?.payedAt || null,
+      event: ironPayload?.event || transaction.event
     }),
-    paidAt: transaction.payedAt || sigiloPayload?.payedAt || null,
-    sigiloDetails: sigiloPayload?.details || null,
-    sigiloPayload
+    paidAt: transaction.payedAt || ironPayload?.payedAt || null,
+    ironDetails: ironPayload?.details || transaction.details || null,
+    ironPayload,
+    sigiloTransactionId: ironPayload?.transactionId || transaction.id || null,
+    sigiloOrderId: ironPayload?.order?.id || ironPayload?.orderId || null,
+    sigiloPaymentMethod: (paymentMethod || "pix").toUpperCase(),
+    sigiloStatus: paymentStatus || null,
+    sigiloDetails: ironPayload?.details || null,
+    sigiloPayload: ironPayload
   });
 };
 
-export const syncInvoiceWithSigilo = async (invoice, sigiloTransaction) => {
+export const syncInvoiceWithIron = async (invoice, ironTransaction) => {
   if (!invoice) {
     return null;
   }
 
-  const transaction = sigiloTransaction || {};
-  const pixInformation = transaction.pixInformation || {};
+  const transaction = ironTransaction || {};
+  const pixInformation = transaction.pixInformation || transaction.pix || {};
+  const paymentStatus = String(transaction.paymentStatus || transaction.status || "").trim();
+  const paymentMethod = String(transaction.paymentMethod || "pix").trim();
   const status = resolveInvoiceStatus({
-    status: transaction.status || invoice.sigiloStatus || "pending",
+    status: paymentStatus || invoice.ironStatus || invoice.sigiloStatus || "pending",
     payedAt: transaction.payedAt || invoice.paidAt || null,
     event: transaction.event
   });
 
   return updateInvoiceByPublicToken(invoice.publicToken, {
-    sigiloTransactionId: transaction.id || invoice.sigiloTransactionId || null,
-    sigiloOrderId: transaction.orderId || invoice.sigiloOrderId || null,
-    sigiloPaymentMethod: transaction.paymentMethod || invoice.sigiloPaymentMethod || "PIX",
-    sigiloStatus: transaction.status || invoice.sigiloStatus || null,
-    pixCode: pixInformation.qrCode || invoice.pixCode || null,
+    ironTransactionHash: transaction.hash || transaction.id || invoice.ironTransactionHash || invoice.sigiloTransactionId || null,
+    ironOfferHash: transaction.offerHash || invoice.ironOfferHash || null,
+    ironPaymentMethod: paymentMethod || invoice.ironPaymentMethod || "pix",
+    ironStatus: paymentStatus || invoice.ironStatus || null,
+    ironPixCode: pixInformation.code || pixInformation.qrCode || invoice.ironPixCode || invoice.pixCode || null,
+    ironPixImage: pixInformation.image || invoice.ironPixImage || invoice.pixImage || null,
+    pixCode: pixInformation.code || pixInformation.qrCode || invoice.pixCode || null,
     pixImage: pixInformation.image || invoice.pixImage || null,
     status,
     paidAt: transaction.payedAt || invoice.paidAt || null,
+    ironDetails: transaction.details || invoice.ironDetails || null,
+    ironPayload: transaction,
+    sigiloTransactionId: transaction.id || invoice.sigiloTransactionId || null,
+    sigiloOrderId: transaction.orderId || invoice.sigiloOrderId || null,
+    sigiloPaymentMethod: (paymentMethod || invoice.sigiloPaymentMethod || "pix").toUpperCase(),
+    sigiloStatus: paymentStatus || invoice.sigiloStatus || null,
     sigiloDetails: transaction.details || invoice.sigiloDetails || null,
     sigiloPayload: transaction
   });
 };
+
+export const updateInvoiceFromSigilo = updateInvoiceFromIron;
+export const syncInvoiceWithSigilo = syncInvoiceWithIron;

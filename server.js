@@ -34,12 +34,12 @@ import {
   createInvoiceToken,
   countInvoices,
   findInvoiceById,
-  findInvoiceBySigiloTransactionId,
+  findInvoiceByIronTransactionHash,
   findInvoiceByPublicToken,
   listInvoices,
-  syncInvoiceWithSigilo,
+  syncInvoiceWithIron,
 } from "./src/invoices/repository.js";
-import { createSigiloPixPayment, fetchSigiloTransaction } from "./src/payments/sigilopay.js";
+import { createIronPixPayment, fetchIronTransaction } from "./src/payments/ironpay.js";
 import {
   comparePassword,
   hashPassword,
@@ -64,8 +64,8 @@ const allowedOrigins = (process.env.CORS_ORIGIN || appUrl)
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
-const sigiloCallbackUrl =
-  process.env.SIGILO_CALLBACK_URL || new URL("/api/webhooks/sigilopay", appUrl).toString();
+const ironCallbackUrl =
+  process.env.IRON_CALLBACK_URL || new URL("/api/webhooks/ironpay", appUrl).toString();
 
 app.use(express.json({ limit: "25mb" }));
 app.use((req, res, next) => {
@@ -165,6 +165,14 @@ const normalizeInvoicePayload = (invoice) => {
     dueDate: invoice.dueDate,
     description: invoice.description,
     status: invoice.status,
+    ironTransactionHash: invoice.ironTransactionHash || invoice.sigiloTransactionId,
+    ironOfferHash: invoice.ironOfferHash || null,
+    ironPaymentMethod: invoice.ironPaymentMethod || invoice.sigiloPaymentMethod,
+    ironStatus: invoice.ironStatus || invoice.sigiloStatus,
+    ironPixCode: invoice.ironPixCode || invoice.pixCode,
+    ironPixImage: invoice.ironPixImage || invoice.pixImage,
+    ironDetails: invoice.ironDetails || invoice.sigiloDetails,
+    ironPayload: invoice.ironPayload || invoice.sigiloPayload,
     sigiloTransactionId: invoice.sigiloTransactionId,
     sigiloOrderId: invoice.sigiloOrderId,
     sigiloPaymentMethod: invoice.sigiloPaymentMethod,
@@ -433,9 +441,9 @@ app.post("/api/admin/invoices", adminRequired, async (req, res) => {
     }
 
     const publicToken = createInvoiceToken();
-    const callbackUrl = sigiloCallbackUrl;
+    const callbackUrl = ironCallbackUrl;
 
-    const sigiloResponse = await createSigiloPixPayment({
+    const ironResponse = await createIronPixPayment({
       identifier: publicToken,
       amount: amountNumber,
       client: {
@@ -453,6 +461,9 @@ app.post("/api/admin/invoices", adminRequired, async (req, res) => {
       callbackUrl
     });
 
+    const ironStatusValue = String(ironResponse.paymentStatus || ironResponse.status || "pending").toLowerCase();
+    const normalizedInvoiceStatus = ironStatusValue === "ok" ? "pending" : ironStatusValue;
+
     const paymentUrl = `${appUrl.replace(/\/$/, "")}/fatura.html?token=${publicToken}`;
     const invoice = await createInvoice({
       publicToken,
@@ -465,23 +476,31 @@ app.post("/api/admin/invoices", adminRequired, async (req, res) => {
       amount: amountNumber,
       dueDate: dueDate || null,
       description: description ? String(description).trim() : null,
-      sigiloTransactionId: sigiloResponse.transactionId || null,
-      sigiloOrderId: sigiloResponse.order?.id || null,
-      sigiloPaymentMethod: "PIX",
-      sigiloStatus: sigiloResponse.status || "PENDING",
-      pixCode: sigiloResponse.pix?.code || null,
-      pixImage: sigiloResponse.pix?.image || null,
+      ironTransactionHash: ironResponse.hash || ironResponse.id || null,
+      ironOfferHash: ironResponse.order?.offerHash || ironResponse.offerHash || null,
+      ironPaymentMethod: ironResponse.paymentMethod || "pix",
+      ironStatus: ironResponse.paymentStatus || ironResponse.status || "pending",
+      ironPixCode: ironResponse.pix?.code || null,
+      ironPixImage: ironResponse.pix?.image || null,
+      pixCode: ironResponse.pix?.code || null,
+      pixImage: ironResponse.pix?.image || null,
       paymentUrl,
       callbackUrl,
-      sigiloDetails: sigiloResponse.details || null,
-      sigiloPayload: sigiloResponse,
-      status: sigiloResponse.status === "OK" ? "pending" : String(sigiloResponse.status || "pending").toLowerCase()
+      ironDetails: ironResponse.details || null,
+      ironPayload: ironResponse.raw || ironResponse,
+      sigiloTransactionId: ironResponse.hash || null,
+      sigiloOrderId: ironResponse.order?.id || null,
+      sigiloPaymentMethod: (ironResponse.paymentMethod || "pix").toUpperCase(),
+      sigiloStatus: normalizedInvoiceStatus,
+      sigiloDetails: ironResponse.details || null,
+      sigiloPayload: ironResponse.raw || ironResponse,
+      status: normalizedInvoiceStatus
     });
 
     return res.status(201).json({ invoice: normalizeInvoicePayload(invoice) });
   } catch (error) {
     console.error(error);
-    const status = error.message.includes("SigiloPay não configuradas") ? 503 : 502;
+    const status = String(error.message || "").includes("IronPay") ? 503 : 502;
     return res.status(status).json({ message: error.message || "Erro ao gerar fatura." });
   }
 });
@@ -509,12 +528,12 @@ app.post("/api/admin/invoices/:id/sync", adminRequired, async (req, res) => {
       return res.status(404).json({ message: "Fatura não encontrada." });
     }
 
-    const transaction = await fetchSigiloTransaction({
-      id: invoice.sigiloTransactionId,
-      clientIdentifier: invoice.publicToken
+    const transaction = await fetchIronTransaction({
+      id: invoice.ironTransactionHash || invoice.sigiloTransactionId,
+      identifier: invoice.publicToken
     });
 
-    const updatedInvoice = await syncInvoiceWithSigilo(invoice, transaction);
+    const updatedInvoice = await syncInvoiceWithIron(invoice, transaction);
     return res.json({ invoice: normalizeInvoicePayload(updatedInvoice) });
   } catch (error) {
     console.error(error);
@@ -545,16 +564,16 @@ app.post("/api/invoices/public/:token/sync", async (req, res) => {
       return res.status(404).json({ message: "Fatura não encontrada." });
     }
 
-    if (!invoice.sigiloTransactionId && !invoice.publicToken) {
+    if (!invoice.ironTransactionHash && !invoice.sigiloTransactionId && !invoice.publicToken) {
       return res.json({ invoice: normalizeInvoicePayload(invoice) });
     }
 
-    const transaction = await fetchSigiloTransaction({
-      id: invoice.sigiloTransactionId,
-      clientIdentifier: invoice.publicToken
+    const transaction = await fetchIronTransaction({
+      id: invoice.ironTransactionHash || invoice.sigiloTransactionId,
+      identifier: invoice.publicToken
     });
 
-    const updatedInvoice = await syncInvoiceWithSigilo(invoice, transaction);
+    const updatedInvoice = await syncInvoiceWithIron(invoice, transaction);
     return res.json({ invoice: normalizeInvoicePayload(updatedInvoice) });
   } catch (error) {
     console.error(error);
@@ -562,20 +581,20 @@ app.post("/api/invoices/public/:token/sync", async (req, res) => {
   }
 });
 
-app.post("/api/webhooks/sigilopay", async (req, res) => {
+const handleIronWebhook = async (req, res) => {
   try {
     const payload = req.body || {};
-    const expectedToken = process.env.SIGILO_WEBHOOK_TOKEN;
+    const expectedToken = process.env.IRON_WEBHOOK_TOKEN;
 
     if (expectedToken && payload.token !== expectedToken) {
       return res.status(401).json({ message: "Token de webhook inválido." });
     }
 
     const transaction = payload.transaction || {};
-    const transactionId = payload.transactionId || transaction.id;
+    const transactionId = payload.transactionId || transaction.hash || transaction.id;
     const clientIdentifier = transaction.identifier || payload.clientIdentifier;
     const invoice =
-      (transactionId && (await findInvoiceBySigiloTransactionId(transactionId))) ||
+      (transactionId && (await findInvoiceByIronTransactionHash(transactionId))) ||
       (clientIdentifier && (await findInvoiceByPublicToken(String(clientIdentifier).trim())));
 
     if (!invoice) {
@@ -584,24 +603,30 @@ app.post("/api/webhooks/sigilopay", async (req, res) => {
 
     const normalizedTransaction = {
       ...transaction,
-      id: transactionId || transaction.id || invoice.sigiloTransactionId,
-      status: transaction.status || payload.status || invoice.sigiloStatus,
-      paymentMethod: transaction.paymentMethod || invoice.sigiloPaymentMethod || "PIX",
+      id: transactionId || transaction.hash || transaction.id || invoice.ironTransactionHash || invoice.sigiloTransactionId,
+      hash: transactionId || transaction.hash || transaction.id || invoice.ironTransactionHash || invoice.sigiloTransactionId,
+      status: transaction.paymentStatus || transaction.status || payload.status || invoice.ironStatus || invoice.sigiloStatus,
+      paymentStatus:
+        transaction.paymentStatus || transaction.status || payload.status || invoice.ironStatus || invoice.sigiloStatus,
+      paymentMethod: transaction.paymentMethod || invoice.ironPaymentMethod || invoice.sigiloPaymentMethod || "pix",
       payedAt: transaction.payedAt || null,
       pixInformation: transaction.pixInformation || payload.pixInformation || {
-        qrCode: payload.pix?.code || payload.pixInformation?.qrCode || invoice.pixCode || null,
-        image: payload.pix?.image || payload.pixInformation?.image || invoice.pixImage || null
+        qrCode: payload.pix?.code || payload.pixInformation?.qrCode || invoice.ironPixCode || invoice.pixCode || null,
+        image: payload.pix?.image || payload.pixInformation?.image || invoice.ironPixImage || invoice.pixImage || null
       },
       details: payload.details || transaction.details || null
     };
 
-    await syncInvoiceWithSigilo(invoice, normalizedTransaction);
+    await syncInvoiceWithIron(invoice, normalizedTransaction);
     return res.json({ received: true, matched: true });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Erro ao processar webhook da SigiloPay." });
+    return res.status(500).json({ message: "Erro ao processar webhook da IronPay." });
   }
-});
+};
+
+app.post("/api/webhooks/ironpay", handleIronWebhook);
+app.post("/api/webhooks/sigilopay", handleIronWebhook);
 
 app.all("/api/admin/customers", adminRequired, async (req, res) => {
   try {

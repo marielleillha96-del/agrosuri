@@ -1,5 +1,5 @@
-import { findInvoiceByPublicToken, syncInvoiceWithSigilo } from "../src/invoices/repository.js";
-import { fetchSigiloTransaction } from "../src/payments/sigilopay.js";
+import { findInvoiceByPublicToken, syncInvoiceWithIron } from "../src/invoices/repository.js";
+import { fetchIronTransaction } from "../src/payments/ironpay.js";
 import { handleOptions, sendJson, getQueryParam } from "./_lib/http.js";
 
 const normalizeInvoicePayload = (invoice) => {
@@ -20,6 +20,14 @@ const normalizeInvoicePayload = (invoice) => {
     dueDate: invoice.dueDate,
     description: invoice.description,
     status: invoice.status,
+    ironTransactionHash: invoice.ironTransactionHash || invoice.sigiloTransactionId,
+    ironOfferHash: invoice.ironOfferHash || null,
+    ironPaymentMethod: invoice.ironPaymentMethod || invoice.sigiloPaymentMethod,
+    ironStatus: invoice.ironStatus || invoice.sigiloStatus,
+    ironPixCode: invoice.ironPixCode || invoice.pixCode,
+    ironPixImage: invoice.ironPixImage || invoice.pixImage,
+    ironDetails: invoice.ironDetails || invoice.sigiloDetails,
+    ironPayload: invoice.ironPayload || invoice.sigiloPayload,
     sigiloTransactionId: invoice.sigiloTransactionId,
     sigiloOrderId: invoice.sigiloOrderId,
     sigiloPaymentMethod: invoice.sigiloPaymentMethod,
@@ -71,16 +79,16 @@ export default async function handler(req, res) {
         return sendJson(req, res, 404, { message: "Fatura não encontrada." });
       }
 
-      if (!invoice.sigiloTransactionId && !invoice.publicToken) {
+      if (!invoice.ironTransactionHash && !invoice.sigiloTransactionId && !invoice.publicToken) {
         return sendJson(req, res, 200, { invoice: normalizeInvoicePayload(invoice) });
       }
 
-      const transaction = await fetchSigiloTransaction({
-        id: invoice.sigiloTransactionId,
-        clientIdentifier: invoice.publicToken
+      const transaction = await fetchIronTransaction({
+        id: invoice.ironTransactionHash || invoice.sigiloTransactionId,
+        identifier: invoice.publicToken
       });
 
-      const updatedInvoice = await syncInvoiceWithSigilo(invoice, transaction);
+      const updatedInvoice = await syncInvoiceWithIron(invoice, transaction);
       return sendJson(req, res, 200, { invoice: normalizeInvoicePayload(updatedInvoice) });
     }
 
@@ -89,7 +97,12 @@ export default async function handler(req, res) {
     console.error(error);
 
     if (action === "public-sync") {
-      return sendJson(req, res, 502, { message: error.message || "Erro ao sincronizar fatura." });
+      return sendJson(
+        req,
+        res,
+        String(error.message || "").includes("IronPay") ? 503 : 502,
+        { message: error.message || "Erro ao sincronizar fatura." }
+      );
     }
 
     return sendJson(req, res, 500, { message: "Erro ao carregar fatura pública." });

@@ -122,11 +122,12 @@
       };
 
       const renderInvoice = (invoice) => {
-        const statusInfo = getStatusInfo(invoice.paidAt ? "paid" : invoice.status);
-        const qrImage =
+          const statusInfo = getStatusInfo(invoice.paidAt ? "paid" : invoice.status);
+          const qrImage =
+          invoice.ironPixImage ||
           invoice.pixImage ||
-          (invoice.pixCode
-            ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(invoice.pixCode)}`
+          (invoice.ironPixCode || invoice.pixCode
+            ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(invoice.ironPixCode || invoice.pixCode)}`
             : "");
 
         invoiceRoot.innerHTML = `
@@ -170,7 +171,7 @@
 
                 <div class="invoice-copy-group">
                   <label for="pixCopyField">Pix copia e cola</label>
-                  <textarea id="pixCopyField" readonly>${invoice.pixCode || ""}</textarea>
+                  <textarea id="pixCopyField" readonly>${invoice.ironPixCode || invoice.pixCode || ""}</textarea>
                   <div class="invoice-actions">
                     <button class="button button-primary" type="button" id="copyPixButton">Copiar código</button>
                     <a class="button button-secondary" href="${invoice.paymentUrl || "#"}" target="_blank" rel="noreferrer">Abrir link</a>
@@ -200,8 +201,8 @@
                     <dd>${invoice.clientDocument || "-"}</dd>
                   </div>
                   <div>
-                    <dt>Transação SigiloPay</dt>
-                    <dd>${invoice.sigiloTransactionId || "-"}</dd>
+                    <dt>Transação IronPay</dt>
+                    <dd>${invoice.ironTransactionHash || invoice.sigiloTransactionId || "-"}</dd>
                   </div>
                   <div>
                     <dt>Criada em</dt>
