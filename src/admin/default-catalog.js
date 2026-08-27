@@ -148,7 +148,7 @@ export const DEFAULT_CATALOG_ITEMS = [
       "destaques",
       "relacionados"
     ],
-    "price": 0,
+    "price": 24000,
     "location": "Sob consulta",
     "yearLabel": "2009/2010",
     "imageUrl": "/catalogo-assets/toyota-hilux-3-0-srv-4x4-cd/01.jpg",
