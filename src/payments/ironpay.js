@@ -30,6 +30,8 @@ const normalizeApiBaseUrl = (value) => {
 const getApiBaseUrl = () => normalizeApiBaseUrl(process.env.IRON_API_BASE_URL || DEFAULT_API_BASE_URL);
 const getApiToken = () => process.env.IRON_API_TOKEN || process.env.IRONPAY_API_TOKEN;
 const getDefaultOfferHash = () => process.env.IRON_DEFAULT_OFFER_HASH || process.env.IRON_OFFER_HASH;
+const getDefaultProductHash = () =>
+  process.env.IRON_DEFAULT_PRODUCT_HASH || process.env.IRON_PRODUCT_HASH || getDefaultOfferHash();
 
 const normalizeAmountToCents = (amount) => {
   const numericAmount = Number(amount || 0);
@@ -153,6 +155,7 @@ const buildTransactionBody = ({
   paymentMethod = "pix"
 }) => {
   const resolvedOfferHash = offerHash || getDefaultOfferHash();
+  const resolvedProductHash = getDefaultProductHash();
 
   if (!resolvedOfferHash) {
     throw new Error("Informe IRON_DEFAULT_OFFER_HASH para criar transações na IronPay.");
@@ -166,13 +169,24 @@ const buildTransactionBody = ({
     amount: normalizeAmountToCents(amount),
     offer_hash: resolvedOfferHash,
     payment_method: paymentMethod,
+    installments: 1,
     customer: {
       name: String(client.name).trim(),
       email: String(client.email).trim().toLowerCase(),
       phone_number: toDigits(client.phone),
       document: toDigits(client.document)
     },
-    installments: 1
+    cart: [
+      {
+        product_hash: resolvedProductHash,
+        title: String(metadata?.invoiceTitle || identifier || "Cobrança AGRO SURI").trim(),
+        cover: null,
+        price: normalizeAmountToCents(amount),
+        quantity: 1,
+        operation_type: 1,
+        tangible: false
+      }
+    ]
   };
 
   if (identifier) {
