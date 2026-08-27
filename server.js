@@ -50,6 +50,7 @@ import {
 } from "./src/auth/security.js";
 import { getBearerToken } from "./src/auth/request.js";
 import { onlyDigits, sanitizeUser } from "./src/auth/utils.js";
+import { resolveIronCallbackUrl } from "./src/config/ironpay.js";
 
 dotenv.config();
 
@@ -64,8 +65,11 @@ const allowedOrigins = (process.env.CORS_ORIGIN || appUrl)
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
-const ironCallbackUrl =
-  process.env.IRON_CALLBACK_URL || new URL("/api/webhooks/ironpay", appUrl).toString();
+const ironCallbackUrl = resolveIronCallbackUrl({
+  appUrl,
+  appDomain,
+  appEnv: process.env.APP_ENV
+});
 
 app.use(express.json({ limit: "25mb" }));
 app.use((req, res, next) => {

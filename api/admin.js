@@ -19,10 +19,14 @@ import { requireAdmin } from "./_lib/admin.js";
 import { handleOptions, readJsonBody, sendJson, getQueryParam } from "./_lib/http.js";
 import { onlyDigits, sanitizeUser } from "../src/auth/utils.js";
 import { hashPassword } from "../src/auth/security.js";
+import { resolveIronCallbackUrl } from "../src/config/ironpay.js";
 
 const appUrl = process.env.APP_URL || "http://localhost:3000";
-const ironCallbackUrl =
-  process.env.IRON_CALLBACK_URL || new URL("/api/webhooks/ironpay", appUrl).toString();
+const ironCallbackUrl = resolveIronCallbackUrl({
+  appUrl,
+  appDomain: process.env.APP_DOMAIN || "localhost",
+  appEnv: process.env.APP_ENV
+});
 
 const getTodayInSaoPaulo = () =>
   new Intl.DateTimeFormat("en-CA", {
