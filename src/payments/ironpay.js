@@ -1,6 +1,33 @@
 const DEFAULT_API_BASE_URL = "https://api.ironpayapp.com.br/api/public/v1";
 
-const getApiBaseUrl = () => process.env.IRON_API_BASE_URL || DEFAULT_API_BASE_URL;
+const normalizeApiBaseUrl = (value) => {
+  const rawValue = String(value || "").trim();
+
+  if (!rawValue) {
+    return DEFAULT_API_BASE_URL;
+  }
+
+  try {
+    const url = new URL(rawValue);
+    const pathname = url.pathname.replace(/\/+$/, "");
+
+    if (/\/api\/v1$/i.test(pathname) && !/\/api\/public\/v1$/i.test(pathname)) {
+      url.pathname = pathname.replace(/\/api\/v1$/i, "/api/public/v1");
+      return url.toString().replace(/\/+$/, "");
+    }
+
+    if (!pathname || pathname === "/") {
+      url.pathname = "/api/public/v1";
+      return url.toString().replace(/\/+$/, "");
+    }
+
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return rawValue.replace(/\/+$/, "");
+  }
+};
+
+const getApiBaseUrl = () => normalizeApiBaseUrl(process.env.IRON_API_BASE_URL || DEFAULT_API_BASE_URL);
 const getApiToken = () => process.env.IRON_API_TOKEN || process.env.IRONPAY_API_TOKEN;
 const getDefaultOfferHash = () => process.env.IRON_DEFAULT_OFFER_HASH || process.env.IRON_OFFER_HASH;
 
