@@ -10,8 +10,12 @@ const normalizeApiBaseUrl = (value) => {
     return DEFAULT_API_BASE_URL;
   }
 
+  const markdownUrlMatch = rawValue.match(/\((https?:\/\/[^)]+)\)/i);
+  const plainUrlMatch = rawValue.match(/https?:\/\/[^\s)\]]+/i);
+  const normalizedValue = markdownUrlMatch?.[1] || plainUrlMatch?.[0] || rawValue;
+
   try {
-    const url = new URL(rawValue);
+    const url = new URL(normalizedValue);
     const pathname = url.pathname.replace(/\/+$/, "");
 
     if (!pathname || pathname === "/") {
@@ -21,7 +25,7 @@ const normalizeApiBaseUrl = (value) => {
 
     return url.toString().replace(/\/+$/, "");
   } catch {
-    return rawValue.replace(/\/+$/, "");
+    return normalizedValue.replace(/\/+$/, "");
   }
 };
 
