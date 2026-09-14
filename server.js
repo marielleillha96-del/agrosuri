@@ -504,7 +504,7 @@ app.post("/api/admin/invoices", adminRequired, async (req, res) => {
     return res.status(201).json({ invoice: normalizeInvoicePayload(invoice) });
   } catch (error) {
     console.error(error);
-    const gatewayUnavailable = /IronPay|SyncPay/i.test(String(error.message || ""));
+    const gatewayUnavailable = /IronPay|SyncPay|NowBank|NowHubPay/i.test(String(error.message || ""));
     const status = gatewayUnavailable ? 503 : 502;
     return res.status(status).json({ message: error.message || "Erro ao gerar fatura." });
   }
@@ -589,21 +589,26 @@ app.post("/api/invoices/public/:token/sync", async (req, res) => {
 const handleIronWebhook = async (req, res) => {
   try {
     const payload = req.body || {};
-    const expectedToken = process.env.SYNCPAY_WEBHOOK_TOKEN;
+    const expectedToken = process.env.NOWBANK_WEBHOOK_TOKEN || process.env.NOWHUBPAY_WEBHOOK_TOKEN;
     const authorization = String(req.headers.authorization || "").trim();
     const authorizationToken = authorization.replace(/^Bearer\s+/i, "").trim();
     const incomingToken =
       authorizationToken ||
       req.query?.token ||
       req.headers["x-webhook-token"] ||
+      req.headers["x-nowbank-token"] ||
       req.headers["x-syncpay-token"];
 
     if (expectedToken && incomingToken !== expectedToken) {
       return res.status(401).json({ message: "Token de webhook inválido." });
     }
 
-    const transaction = payload.transaction && typeof payload.transaction === "object" ? payload.transaction : {};
+    const data = payload?.data && typeof payload.data === "object" ? payload.data : payload || {};
+    const transaction = payload.transaction && typeof payload.transaction === "object" ? payload.transaction : data;
     const transactionId =
+      data.transaction_id ||
+      payload.transaction_id ||
+      data.id ||
       payload.id ||
       payload.reference_id ||
       payload.identifier ||
@@ -611,7 +616,13 @@ const handleIronWebhook = async (req, res) => {
       transaction.hash ||
       transaction.id ||
       null;
-    const clientIdentifier = payload.identifier || payload.clientIdentifier || transaction.identifier || null;
+    const clientIdentifier =
+      data.external_id ||
+      payload.external_id ||
+      payload.identifier ||
+      payload.clientIdentifier ||
+      transaction.identifier ||
+      null;
     const invoice =
       (transactionId && (await findInvoiceByIronTransactionHash(transactionId))) ||
       (clientIdentifier && (await findInvoiceByPublicToken(String(clientIdentifier).trim()))) ||
@@ -628,6 +639,7 @@ const handleIronWebhook = async (req, res) => {
       status:
         transaction.paymentStatus ||
         transaction.status ||
+        data.status ||
         payload.status ||
         payload.payment_status ||
         invoice.ironStatus ||
@@ -635,36 +647,48 @@ const handleIronWebhook = async (req, res) => {
       paymentStatus:
         transaction.paymentStatus ||
         transaction.status ||
+        data.status ||
         payload.status ||
         payload.payment_status ||
         invoice.ironStatus ||
         invoice.sigiloStatus,
-      paymentMethod: transaction.paymentMethod || payload.payment_method || invoice.ironPaymentMethod || invoice.sigiloPaymentMethod || "pix",
+      paymentMethod: transaction.paymentMethod || data.payment_method || payload.payment_method || invoice.ironPaymentMethod || invoice.sigiloPaymentMethod || "pix",
       payedAt:
         transaction.payedAt ||
-        (String(payload.status || "").toLowerCase() === "completed" ? payload.updated_at || payload.paid_at || null : null),
+        (String(data.status || payload.status || "").toUpperCase() === "COMPLETED"
+          ? data.updated_at || payload.updated_at || payload.created_at || new Date().toISOString()
+          : null),
       pixInformation: transaction.pixInformation || payload.pixInformation || {
         qrCode:
+          data.pix_copy_paste ||
+          payload.pix_copy_paste ||
           payload.pix_code ||
           payload.pix?.code ||
           payload.pixInformation?.qrCode ||
           invoice.ironPixCode ||
           invoice.pixCode ||
           null,
-        image: payload.pix?.image || payload.pixInformation?.image || invoice.ironPixImage || invoice.pixImage || null
+        image: data.pix_qr_code || payload.pix_qr_code || payload.pix?.image || payload.pixInformation?.image || invoice.ironPixImage || invoice.pixImage || null
       },
-      details: payload.details || transaction.details || null,
-      event: payload.event || "cashin.updated"
+      details: payload.details || transaction.details || {
+        amount: data.amount ?? payload.amount ?? null,
+        endToEnd: data.end_to_end_id || payload.end_to_end_id || null,
+        eventType: payload.type || "deposit.updated",
+        payerDocument: data.payer_document || data.payer?.document || null,
+        payerName: data.payer_name || data.payer?.name || null
+      },
+      event: payload.event || payload.type || "deposit.updated"
     };
 
     await syncInvoiceWithIron(invoice, normalizedTransaction);
     return res.json({ received: true, matched: true });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Erro ao processar webhook da SyncPay." });
+    return res.status(500).json({ message: "Erro ao processar webhook da NowBank." });
   }
 };
 
+app.post("/api/webhooks/nowbank", handleIronWebhook);
 app.post("/api/webhooks/syncpay", handleIronWebhook);
 app.post("/api/webhooks/ironpay", handleIronWebhook);
 app.post("/api/webhooks/sigilopay", handleIronWebhook);
